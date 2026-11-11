@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteTargetsManager">
+    <option name="projectDefaultTargetUuid" value="8ce34fb0-8d9c-4f95-b975-f8037a5c6a95" />
+    <targets>
+      <target name="root@localhost:8081" type="ssh/sftp" uuid="8ce34fb0-8d9c-4f95-b975-f8037a5c6a95">
+        <config>
+          <option name="projectRootOnTarget" value="/root/DockerWEB" />
+          <option name="serverName" value="root@localhost:8081 password" />
+          <option name="useRsync" value="true" />
+        </config>
+      </target>
+    </targets>
+  </component>
+</project>
