@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -26,6 +27,10 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(ktorLibs.client.core)
+            implementation(ktorLibs.client.js)
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

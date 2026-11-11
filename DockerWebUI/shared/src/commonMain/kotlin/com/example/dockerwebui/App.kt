@@ -9,14 +9,72 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.dockerwebui.Views.leftPanel
 import com.example.dockerwebui.Views.rightPanelContainers
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.js.Js
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.SSEBufferPolicy
+import io.ktor.client.plugins.sse.deserialize
+import io.ktor.client.plugins.sse.sse
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 @Preview
 fun App() {
-    val state = AppState()
+    val client = remember {  HttpClient(Js){
+        install(SSE){
+            bufferPolicy = SSEBufferPolicy.LastEvents(10)
+            maxReconnectionAttempts = 5
+            reconnectionTime = 2.seconds
+        }
+    }
+    }
+
+    val scope = CoroutineScope(context = Dispatchers.Default)
+    val state = remember{ AppState() }
     val font = Font()
+    val json = remember {
+        Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
+    }
+    LaunchedEffect(Unit){
+        try{
+            client.sse(
+                host = "127.0.0.1",
+                port = 8081,
+                path = "/stats",
+                deserialize = { typeInfo, jsonString ->
+                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
+                    json.decodeFromString(serializer, jsonString)!!
+                }
+            ) {
+                incoming.collect { event ->
+                    event.data?.let { dataStr ->
+                        val containers = deserialize<List<ContainerData>>(dataStr)
+                        if (containers != null) {
+                            state.containers.clear()
+                            state.containers.addAll(containers)
+                        }
+                    }
+                }
+            }
+        }
+        catch(e: Exception){
+            if (e is CancellationException) {
+                ensureActive()
+            }
+            println("Exception:$e")
+        }
+    }
     Row(modifier = Modifier.fillMaxSize().background(color = Color(11, 18, 27))){
         leftPanel(0.15f , appState = state, font = font)
-        rightPanelContainers(1f , font = font)
+        rightPanelContainers(1f , font = font , appState = state)
     }
 }
