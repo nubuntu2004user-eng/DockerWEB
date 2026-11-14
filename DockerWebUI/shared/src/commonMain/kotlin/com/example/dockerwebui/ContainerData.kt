@@ -5,10 +5,36 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlin.math.roundToInt
 
+enum class ContainerStatus {
+    RUNNING,
+    PAUSED,
+    STOPPED,
+    RESTARTING,
+    REMOVING,
+    DEAD,
+    UNKNOWN;
+
+    companion object {
+        fun fromString(value: String?): ContainerStatus {
+            return when (value?.trim()?.lowercase()) {
+                "running" -> RUNNING
+                "paused" -> PAUSED
+                "exited", "stopped", "created" -> STOPPED
+                "restarting" -> RESTARTING
+                "removing" -> REMOVING
+                "dead" -> DEAD
+                else -> UNKNOWN
+            }
+        }
+    }
+}
+
 @Serializable
 data class ContainerData(
     val id: String? = null,
     val name: String? = null,
+    val status: String? = null,
+    val state: String? = null,
     @SerialName("os_type")
     val osType: String? = null,
     val read: String? = null,
@@ -29,6 +55,8 @@ data class ContainerData(
     val storageStats: JsonObject? = null,
     val networks: Map<String, NetworkStats>? = null,
 ) {
+    fun containerStatus(): ContainerStatus = ContainerStatus.fromString(status ?: state)
+
     fun cpuPercentage(): Double {
         val currentCpu = cpuStats ?: return 0.0
         val prevCpu = preCpuStats ?: return 0.0
