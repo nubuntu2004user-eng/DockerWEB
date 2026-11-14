@@ -8,10 +8,10 @@ plugins {
 }
 
 kotlin {
-    js {
-        browser()
-        binaries.executable()
-    }
+//    js {
+//        browser()
+//        binaries.executable()
+//    }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -30,13 +30,13 @@ kotlin {
             implementation(ktorLibs.client.core)
             implementation(ktorLibs.client.js)
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
-        jsMain.dependencies {
-            implementation(libs.wrappers.browser)
-        }
+//        jsMain.dependencies {
+//            implementation(libs.wrappers.browser)
+//        }
     }
 }

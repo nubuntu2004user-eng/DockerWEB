@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Tablet
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedButton
@@ -26,14 +29,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dockerwebui.AppState
 import com.example.dockerwebui.Font
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 
 @Composable
-fun rightPanelContainers(withToFill: Float, font: Font , appState: AppState){
+fun rightPanelContainers(withToFill: Float, font: Font , appState: AppState , scope : CoroutineScope){
+    val clipboardManager = LocalClipboardManager.current
     val secondaryColor = Color(50, 74, 110)
     var userInputSearch by remember { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxHeight().fillMaxWidth(withToFill).background(Color(27, 45, 68)).padding(32.dp)) {
@@ -133,7 +141,8 @@ fun rightPanelContainers(withToFill: Float, font: Font , appState: AppState){
 
                         for (container in appState.containers){
                             Row {
-                                TextButton(onClick = {}){
+                                TextButton(onClick = {clipboardManager.setText(annotatedString = AnnotatedString(container.id?:"Error retrieving id try again"));
+                                    scope.launch {appState.toastState.showToast(message = "Copied to clipboard" , icon = Icons.Filled.ContentCopy )}}){
                                     Text("Copy ID" , fontFamily = font.font , color = font.fontColor )
                                 }
                             }
