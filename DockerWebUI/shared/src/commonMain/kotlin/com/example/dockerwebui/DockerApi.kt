@@ -2,6 +2,8 @@ package com.example.dockerwebui
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
@@ -9,7 +11,9 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 
 class DockerApi(
-    private val client: HttpClient = HttpClient(Js),
+    private val client: HttpClient = HttpClient(Js) {
+        install(SSE)
+    },
     private val baseUrl: String = "http://127.0.0.1:8081"
 ) {
     private val json = Json {
@@ -82,20 +86,28 @@ class DockerApi(
         }
     }
 
+    suspend fun streamShell(id: String, cmd: String, onChunk: (String) -> Unit) {
+        client.sse(
+            urlString = "$baseUrl/shell",
+            request = {
+                parameter("id", id)
+                parameter("cmd", cmd)
+            }
+        ) {
+            incoming.collect { event ->
+                event.data?.let { chunk ->
+                    onChunk(chunk)
+                }
+            }
+        }
+    }
+
     suspend fun runShell(id: String, cmd: String): String {
-        val response = client.post("$baseUrl/shell") {
-            parameter("id", id)
-            parameter("cmd", cmd)
+        val sb = StringBuilder()
+        streamShell(id, cmd) { chunk ->
+            sb.append(chunk)
         }
-        if (response.status.value !in 200..299) {
-            throw Exception(response.bodyAsText())
-        }
-        val text = response.bodyAsText()
-        return try {
-            json.decodeFromString<String>(text)
-        } catch (_: Exception) {
-            text
-        }
+        return sb.toString()
     }
 
     suspend fun inspectContainer(id: String): String {

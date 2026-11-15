@@ -3,6 +3,7 @@ import docker
 
 client = docker.from_env()
 
+open_shells = {}
 
 def get_stats():
     result = []
@@ -47,11 +48,9 @@ def remove_container(id: str):
     container.remove(force=True)
 
 
-def shell(id: str, cmd: str):  # first iteration enable streaming later
+def shell(id: str, cmd: str):
     container = client.containers.get(container_id=id)
-    result = container.exec_run(cmd=cmd, stream=False).output.decode("utf-8")
-    output = json.dumps(result)
-    return output
+    return container.exec_run(cmd=cmd , stream=True).output
 
 
 def inspect_container(id: str):
@@ -65,6 +64,11 @@ def prune_containers():
 
 def add_container(name: str):
     client.containers.run(image=name, detach=True)
+
+def close_shell(id:str):
+    stream = open_shells.pop(id, None)
+    if stream:
+        stream.close()
 
 
 if __name__ == "__main__":

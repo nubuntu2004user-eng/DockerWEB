@@ -84,12 +84,14 @@ async def remove(id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/shell")
-async def shell(id: str, cmd: str):
-    try:
-        return await asyncio.to_thread(client.shell, id, cmd)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/shell" , response_class=EventSourceResponse)
+async def shell(id: str, cmd: str)-> AsyncIterable[ServerSentEvent]:
+        stream = await asyncio.to_thread(client.shell, id, cmd)
+        client.open_shells[id] = stream
+        while id in client.open_shells:
+            for chunk in stream:
+                yield ServerSentEvent(data=chunk.decode("utf=8",errors = "replace"))
+                await asyncio.sleep(0)
 
 
 @app.get("/inspectcontainer")
@@ -115,3 +117,7 @@ async def add(name: str):
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/closeshell")
+async def close(id:str):
+    client.close_shell(id)

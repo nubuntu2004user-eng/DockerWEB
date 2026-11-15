@@ -387,13 +387,28 @@ fun containersTable(
                             ElevatedButton(
                                 onClick = {
                                     if (shellCommand.isNotBlank()) {
-                                        activeDialog = dialog.copy(isLoading = true)
+                                        activeDialog = dialog.copy(isLoading = true, output = "")
                                         scope.launch {
                                             try {
-                                                val out = appState.api.runShell(dialog.id, shellCommand)
-                                                activeDialog = dialog.copy(output = out, isLoading = false)
+                                                appState.api.streamShell(dialog.id, shellCommand) { chunk ->
+                                                    val current = (activeDialog as? ContainerDialog.Shell) ?: dialog
+                                                    activeDialog = current.copy(
+                                                        output = current.output + chunk,
+                                                        isLoading = false
+                                                    )
+                                                }
                                             } catch (e: Exception) {
-                                                activeDialog = dialog.copy(output = "Error: ${e.message}", isLoading = false)
+                                                val current = (activeDialog as? ContainerDialog.Shell) ?: dialog
+                                                val currentOut = current.output
+                                                val errorMsg = "Error: ${e.message ?: e.toString()}"
+                                                activeDialog = current.copy(
+                                                    output = if (currentOut.isBlank()) errorMsg else "$currentOut\n$errorMsg",
+                                                    isLoading = false
+                                                )
+                                            } finally {
+                                                (activeDialog as? ContainerDialog.Shell)?.let {
+                                                    activeDialog = it.copy(isLoading = false)
+                                                }
                                             }
                                         }
                                     }
@@ -413,7 +428,7 @@ fun containersTable(
                                 .background(Color(15, 23, 42), RoundedCornerShape(8.dp))
                                 .padding(12.dp)
                         ) {
-                            if (dialog.isLoading) {
+                            if (dialog.isLoading && dialog.output.isEmpty()) {
                                 Text("Executing command...", fontFamily = font.font, color = Color.Gray, fontSize = 14.sp)
                             } else {
                                 Text(
