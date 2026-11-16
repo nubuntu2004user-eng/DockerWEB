@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dockerwebui.AppState
 import com.example.dockerwebui.Font
+import com.example.dockerwebui.SelectedMode
 
 @Composable
 fun leftPanel(withToFill: Float , appState: AppState , font:Font){
@@ -23,13 +24,13 @@ fun leftPanel(withToFill: Float , appState: AppState , font:Font){
     val clicked = ButtonColors(containerColor = Color(75, 112, 158), contentColor = Color(196, 186, 154) , disabledContainerColor = Color(28, 42, 59) , disabledContentColor = Color(28, 42, 59))
 
     val buttons = listOf<LeftPanelButton>(
-        LeftPanelButton(name = "Containers" , onClick = {appState.selectedButton = 1} , index = 1),
-        LeftPanelButton(name = "Images" , onClick = {appState.selectedButton = 2} , index = 2),
-        LeftPanelButton(name = "Volumes" , onClick = {appState.selectedButton = 3} , index = 3),
-        LeftPanelButton(name = "Networks" , onClick = {appState.selectedButton = 4} , index = 4),
-        LeftPanelButton(name = "Compose Stacks" , onClick = {appState.selectedButton = 5} , index = 5),
-        LeftPanelButton(name = "Terminal" , onClick = {appState.selectedButton = 6} , index = 6),
-        LeftPanelButton(name = "Settings" , onClick = {appState.selectedButton = 7} , index = 7),
+        LeftPanelButton(name = "Containers" , onClick = {appState.contentToDisplay = SelectedMode.CONTAINERS} , selectedMode = SelectedMode.CONTAINERS),
+        LeftPanelButton(name = "Images" , onClick = {appState.contentToDisplay = SelectedMode.IMAGES} , selectedMode = SelectedMode.IMAGES),
+        LeftPanelButton(name = "Volumes" , onClick = {appState.contentToDisplay= SelectedMode.VOLUMES} , selectedMode = SelectedMode.VOLUMES),
+        LeftPanelButton(name = "Networks" , onClick = {appState.contentToDisplay = SelectedMode.NETWORKS} , selectedMode = SelectedMode.NETWORKS),
+        LeftPanelButton(name = "Compose Stacks" , onClick = {appState.contentToDisplay=  SelectedMode.COMPONENTSTACKS} , selectedMode = SelectedMode.COMPONENTSTACKS),
+        LeftPanelButton(name = "Terminal" , onClick = {appState.contentToDisplay=  SelectedMode.TERMINAL} , selectedMode = SelectedMode.TERMINAL),
+        LeftPanelButton(name = "Settings" , onClick = {appState.contentToDisplay= SelectedMode.SETTINGS} , selectedMode = SelectedMode.SETTINGS),
         )
 
 
@@ -44,7 +45,7 @@ fun leftPanel(withToFill: Float , appState: AppState , font:Font){
         for (button in buttons){
         Spacer(modifier = Modifier.fillMaxSize(0.01f))
 
-        if(button.index == appState.selectedButton){
+        if(button.selectedMode == appState.contentToDisplay){
         ElevatedButton(onClick = button.onClick , colors = clicked){
             Text(button.name)
         }
@@ -60,5 +61,5 @@ fun leftPanel(withToFill: Float , appState: AppState , font:Font){
 class LeftPanelButton(
     val name: String,
     val onClick: () -> Unit,
-    val index: Int
+    val selectedMode: SelectedMode
 )

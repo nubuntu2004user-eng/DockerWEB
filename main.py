@@ -90,18 +90,22 @@ async def shell(id: str, cmd: str)-> AsyncIterable[ServerSentEvent]:
             stream = await asyncio.to_thread(client.shell, id, cmd)
             client.open_shells[id] = stream
             for chunk in stream:
-                yield ServerSentEvent(data=chunk.decode("utf-8", errors="replace"))
+                text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').rstrip('\n')
+                yield ServerSentEvent(data=text)
                 await asyncio.sleep(0)
         finally:
             client.open_shells.pop(id, None)
 
 @app.get("/shellhost" , response_class=EventSourceResponse)
 async def shellhost(cmd: str) -> AsyncIterable[ServerSentEvent]:
+    gen = client.host_shell(cmd)
     try:
-        gen = client.host_shell(cmd)
-        for chunk in gen:
-            yield ServerSentEvent(data=chunk.decode("utf-8", errors="replace"))
-            await asyncio.sleep(0)
+        while True:
+            chunk = await asyncio.to_thread(next, gen, None)
+            if chunk is None:
+                break
+            text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').rstrip('\n')
+            yield ServerSentEvent(data=text)
     finally:
         client.open_shells.pop("Host", None)
 @app.get("/inspectcontainer")

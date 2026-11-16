@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.AlertDialog
@@ -304,13 +305,14 @@ fun containersTable(
                         if (dialog.isLoading) {
                             Text("Loading logs...", fontFamily = font.font, color = Color.Gray, fontSize = 14.sp)
                         } else {
-                            Text(
-                                if (dialog.content.isBlank()) "(No logs)" else dialog.content,
-                                fontFamily = font.font,
-                                color = Color(220, 220, 220),
-                                fontSize = 12.sp,
-                                modifier = Modifier.verticalScroll(rememberScrollState())
-                            )
+                            SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    if (dialog.content.isBlank()) "(No logs)" else dialog.content,
+                                    fontFamily = font.font,
+                                    color = Color(220, 220, 220),
+                                    fontSize = 12.sp,
+                                )
+                            }
                         }
                     }
                 },
@@ -340,13 +342,14 @@ fun containersTable(
                         if (dialog.isLoading) {
                             Text("Loading inspect details...", fontFamily = font.font, color = Color.Gray, fontSize = 14.sp)
                         } else {
-                            Text(
-                                dialog.content,
-                                fontFamily = font.font,
-                                color = Color(220, 220, 220),
-                                fontSize = 12.sp,
-                                modifier = Modifier.verticalScroll(rememberScrollState())
-                            )
+                            SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    dialog.content,
+                                    fontFamily = font.font,
+                                    color = Color(220, 220, 220),
+                                    fontSize = 12.sp,
+                                )
+                            }
                         }
                     }
                 },
@@ -430,13 +433,14 @@ fun containersTable(
                             if (dialog.isLoading && dialog.output.isEmpty()) {
                                 Text("Executing command...", fontFamily = font.font, color = Color.Gray, fontSize = 14.sp)
                             } else {
-                                Text(
-                                    if (dialog.output.isBlank()) "(Enter a command and press Run)" else dialog.output,
-                                    fontFamily = font.font,
-                                    color = Color(220, 220, 220),
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.verticalScroll(rememberScrollState())
-                                )
+                                SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                    Text(
+                                        if (dialog.output.isBlank()) "(Enter a command and press Run)" else dialog.output,
+                                        fontFamily = font.font,
+                                        color = Color(220, 220, 220),
+                                        fontSize = 12.sp,
+                                    )
+                                }
                             }
                         }
                     }

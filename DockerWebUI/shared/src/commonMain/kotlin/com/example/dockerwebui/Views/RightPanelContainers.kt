@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.dockerwebui.AppState
 import com.example.dockerwebui.Font
+import com.example.dockerwebui.SelectedMode
 import kotlinx.coroutines.CoroutineScope
 
 @Composable
@@ -28,6 +29,7 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
             .background(Color(27, 45, 68))
             .padding(32.dp)
     ) {
+        if (appState.contentToDisplay == SelectedMode.CONTAINERS){
         containersTopBar(
             font = font,
             appState = appState,
@@ -46,7 +48,7 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
             appState = appState,
             scope = scope,
             searchQuery = userInputSearch
-        )
+        )}
 
         shell(appState = appState , font = font, scope = scope)
     }
