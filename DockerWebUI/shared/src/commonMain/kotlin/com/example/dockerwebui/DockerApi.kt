@@ -142,4 +142,28 @@ class DockerApi(
         }
         return response.bodyAsText()
     }
+
+    suspend fun closeShell(id: String): String{
+        val response = client.post("$baseUrl/closeshell"){
+            parameter("id" , id)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+    suspend fun shellOnHost(cmd: String , onChunk: (String) -> Unit){
+        client.sse(
+            urlString = "$baseUrl/shellhost",
+            request = {
+                parameter("cmd", cmd)
+            }
+        ) {
+            incoming.collect { event ->
+                event.data?.let { chunk ->
+                    onChunk(chunk)
+                }
+            }
+        }
+    }
 }

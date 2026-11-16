@@ -86,14 +86,24 @@ async def remove(id: str):
 
 @app.get("/shell" , response_class=EventSourceResponse)
 async def shell(id: str, cmd: str)-> AsyncIterable[ServerSentEvent]:
-        stream = await asyncio.to_thread(client.shell, id, cmd)
-        client.open_shells[id] = stream
-        while id in client.open_shells:
+        try:
+            stream = await asyncio.to_thread(client.shell, id, cmd)
+            client.open_shells[id] = stream
             for chunk in stream:
-                yield ServerSentEvent(data=chunk.decode("utf=8",errors = "replace"))
+                yield ServerSentEvent(data=chunk.decode("utf-8", errors="replace"))
                 await asyncio.sleep(0)
+        finally:
+            client.open_shells.pop(id, None)
 
-
+@app.get("/shellhost" , response_class=EventSourceResponse)
+async def shellhost(cmd: str) -> AsyncIterable[ServerSentEvent]:
+    try:
+        gen = client.host_shell(cmd)
+        for chunk in gen:
+            yield ServerSentEvent(data=chunk.decode("utf-8", errors="replace"))
+            await asyncio.sleep(0)
+    finally:
+        client.open_shells.pop("Host", None)
 @app.get("/inspectcontainer")
 async def inspect(id: str):
     try:

@@ -1,4 +1,5 @@
 import json
+import subprocess
 import docker
 
 client = docker.from_env()
@@ -70,6 +71,30 @@ def close_shell(id:str):
     if stream:
         stream.close()
 
+def host_shell(cmd: str):
+    process = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    open_shells["Host"] = process
+    try:
+        for line in process.stdout:
+            yield line
+    finally:
+        process.stdout.close()
+        process.wait()
+
+
+def close_shell(id: str):
+    proc_or_stream = open_shells.pop(id, None)
+    if proc_or_stream is None:
+        return
+    if hasattr(proc_or_stream, 'kill'):
+        proc_or_stream.kill()
+    else:
+        proc_or_stream.close()
 
 if __name__ == "__main__":
     print(get_stats())

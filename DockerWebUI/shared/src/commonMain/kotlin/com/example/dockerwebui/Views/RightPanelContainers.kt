@@ -48,6 +48,6 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
             searchQuery = userInputSearch
         )
 
-        shell()
+        shell(appState = appState , font = font, scope = scope)
     }
 }

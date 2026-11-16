@@ -236,10 +236,9 @@ fun containersTable(
                         }
                         TextButton(
                             onClick = {
-                                val id = container.id ?: return@TextButton
-                                val name = container.name ?: id
-                                shellCommand = ""
-                                activeDialog = ContainerDialog.Shell(containerName = name, id = id, output = "", isLoading = false)
+                                if (container.id != null && !appState.openShells.contains(container.id)){
+                                appState.openShells.add(container.id)
+                                }
                             },
                             modifier = Modifier.padding(buttonPadding)
                         ) {
