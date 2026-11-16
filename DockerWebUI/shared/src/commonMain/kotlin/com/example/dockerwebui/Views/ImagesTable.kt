@@ -102,13 +102,13 @@ fun imagesTable(
                     .padding(vertical = 12.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("REPOSITORY", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.15f))
-                Text("TAG", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.08f))
-                Text("IMAGE ID", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.10f))
-                Text("SIZE", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.08f))
-                Text("CREATED", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.12f))
-                Text("USED BY", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.14f))
-                Text("ACTIONS", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.33f))
+                Text("REPOSITORY", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.13f))
+                Text("TAG", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.07f))
+                Text("IMAGE ID", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.09f))
+                Text("SIZE", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.07f))
+                Text("CREATED", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.10f))
+                Text("USED BY", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.10f))
+                Text("ACTIONS", fontFamily = font.font, color = Color(140, 160, 185), fontSize = 13.sp, modifier = Modifier.weight(0.44f))
             }
 
             if (filteredImages.isEmpty()) {
@@ -133,11 +133,11 @@ fun imagesTable(
                         fontFamily = font.font,
                         color = if (image.dangling || image.repository == "<none>") Color(255, 153, 0) else font.fontColor,
                         fontSize = 14.sp,
-                        modifier = Modifier.weight(0.15f)
+                        modifier = Modifier.weight(0.13f)
                     )
 
                     // TAG
-                    Box(modifier = Modifier.weight(0.08f)) {
+                    Box(modifier = Modifier.weight(0.07f)) {
                         Box(
                             modifier = Modifier
                                 .background(Color(35, 55, 80), shape = RoundedCornerShape(4.dp))
@@ -147,7 +147,9 @@ fun imagesTable(
                                 text = image.tag,
                                 fontFamily = font.font,
                                 color = Color(200, 220, 245),
-                                fontSize = 12.sp
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -158,7 +160,9 @@ fun imagesTable(
                         fontFamily = font.font,
                         color = Color(140, 165, 195),
                         fontSize = 13.sp,
-                        modifier = Modifier.weight(0.10f)
+                        modifier = Modifier.weight(0.09f),
+                        maxLines = 1,
+                        softWrap = false
                     )
 
                     // SIZE
@@ -167,7 +171,9 @@ fun imagesTable(
                         fontFamily = font.font,
                         color = font.fontColor,
                         fontSize = 13.sp,
-                        modifier = Modifier.weight(0.08f)
+                        modifier = Modifier.weight(0.07f),
+                        maxLines = 1,
+                        softWrap = false
                     )
 
                     // CREATED
@@ -176,11 +182,13 @@ fun imagesTable(
                         fontFamily = font.font,
                         color = Color(170, 185, 205),
                         fontSize = 12.sp,
-                        modifier = Modifier.weight(0.12f)
+                        modifier = Modifier.weight(0.10f),
+                        maxLines = 1,
+                        softWrap = false
                     )
 
                     // USED BY
-                    Box(modifier = Modifier.weight(0.14f)) {
+                    Box(modifier = Modifier.weight(0.10f)) {
                         when {
                             image.dangling || image.repository == "<none>" -> {
                                 Box(
@@ -188,7 +196,7 @@ fun imagesTable(
                                         .background(Color(180, 80, 20), shape = RoundedCornerShape(4.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Text("Dangling", color = Color.White, fontFamily = font.font, fontSize = 11.sp)
+                                    Text("Dangling", color = Color.White, fontFamily = font.font, fontSize = 11.sp, maxLines = 1, softWrap = false)
                                 }
                             }
                             image.usedBy.isNotEmpty() -> {
@@ -205,12 +213,14 @@ fun imagesTable(
                                                 text = "${u.name.removePrefix("/")} (${u.status})",
                                                 color = Color.White,
                                                 fontFamily = font.font,
-                                                fontSize = 11.sp
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                     }
                                     if (image.usedBy.size > 2) {
-                                        Text("+${image.usedBy.size - 2}", color = Color.LightGray, fontSize = 11.sp)
+                                        Text("+${image.usedBy.size - 2}", color = Color.LightGray, fontSize = 11.sp, maxLines = 1, softWrap = false)
                                     }
                                 }
                             }
@@ -220,7 +230,7 @@ fun imagesTable(
                                         .background(Color(120, 100, 30), shape = RoundedCornerShape(4.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Text("Unused", color = Color(255, 230, 150), fontFamily = font.font, fontSize = 11.sp)
+                                    Text("Unused", color = Color(255, 230, 150), fontFamily = font.font, fontSize = 11.sp, maxLines = 1, softWrap = false)
                                 }
                             }
                         }
@@ -228,10 +238,10 @@ fun imagesTable(
 
                     // ACTIONS
                     Row(
-                        modifier = Modifier.weight(0.33f),
+                        modifier = Modifier.weight(0.44f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val buttonPadding = 2.dp
+                        val buttonPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp)
 
                         // Copy ID
                         TextButton(
@@ -239,9 +249,9 @@ fun imagesTable(
                                 clipboardManager.setText(AnnotatedString(image.id))
                                 scope.launch { appState.toastState.showToast(message = "Image ID copied", icon = Icons.Filled.ContentCopy) }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Copy ID", fontFamily = font.font, color = font.fontColor)
+                            Text("Copy ID", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // Run Button
@@ -251,9 +261,9 @@ fun imagesTable(
                                 runContainerCmd = ""
                                 activeDialog = ImageDialog.Run(fullRepoTag)
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Run", fontFamily = font.font, color = font.fontColor)
+                            Text("Run", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // Pull latest
@@ -284,9 +294,9 @@ fun imagesTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Pull", fontFamily = font.font, color = font.fontColor)
+                            Text("Pull", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // Tag button
@@ -296,9 +306,9 @@ fun imagesTable(
                                 newTagInput = if (image.tag != "<none>") image.tag else "latest"
                                 activeDialog = ImageDialog.Tag(image.id, image.repository, image.tag)
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Tag", fontFamily = font.font, color = font.fontColor)
+                            Text("Tag", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // History button
@@ -315,9 +325,9 @@ fun imagesTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("History", fontFamily = font.font, color = font.fontColor)
+                            Text("History", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // Inspect button
@@ -334,9 +344,9 @@ fun imagesTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Inspect", fontFamily = font.font, color = font.fontColor)
+                            Text("Inspect", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         // Remove button
@@ -353,9 +363,9 @@ fun imagesTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Remove", fontFamily = font.font, color = Color(220, 53, 69))
+                            Text("Remove", fontFamily = font.font, color = Color(220, 53, 69), fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                     }
                 }

@@ -78,12 +78,12 @@ fun containersTable(
                     .padding(vertical = 12.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Name", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.14f))
-                Text("Status", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.09f))
-                Text("OS", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.06f))
-                Text("%Cpu", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.08f))
-                Text("RAM", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.13f))
-                Spacer(modifier = Modifier.weight(0.50f))
+                Text("Name", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.12f))
+                Text("Status", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.08f))
+                Text("OS", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.05f))
+                Text("%Cpu", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.06f))
+                Text("RAM", fontFamily = font.font, color = font.fontColor, modifier = Modifier.weight(0.10f))
+                Spacer(modifier = Modifier.weight(0.59f))
             }
 
             // Container Data Rows
@@ -106,47 +106,57 @@ fun containersTable(
                         container.name?.removePrefix("/") ?: "unknown",
                         fontFamily = font.font,
                         color = font.fontColor,
-                        modifier = Modifier.weight(0.14f)
+                        modifier = Modifier.weight(0.12f),
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         status.name,
                         fontFamily = font.font,
                         color = statusColor,
-                        modifier = Modifier.weight(0.09f)
+                        modifier = Modifier.weight(0.08f),
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         container.osType.toString(),
                         fontFamily = font.font,
                         color = font.fontColor,
-                        modifier = Modifier.weight(0.06f)
+                        modifier = Modifier.weight(0.05f),
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         "${container.cpuPercentage()}%",
                         fontFamily = font.font,
                         color = font.fontColor,
-                        modifier = Modifier.weight(0.08f)
+                        modifier = Modifier.weight(0.06f),
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         "${container.memoryUsageFormatted()} (${container.memoryPercentage()}%)",
                         fontFamily = font.font,
                         color = font.fontColor,
-                        modifier = Modifier.weight(0.13f)
+                        modifier = Modifier.weight(0.10f),
+                        maxLines = 1,
+                        softWrap = false
                     )
 
                     // Actions column
                     Row(
-                        modifier = Modifier.weight(0.50f),
+                        modifier = Modifier.weight(0.59f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val buttonPadding = 2.dp
+                        val buttonPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         TextButton(
                             onClick = {
                                 clipboardManager.setText(annotatedString = AnnotatedString(container.id ?: "Error retrieving id try again"))
                                 scope.launch { appState.toastState.showToast(message = "Copied to clipboard", icon = Icons.Filled.ContentCopy) }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Copy ID", fontFamily = font.font, color = font.fontColor)
+                            Text("Copy ID", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         TextButton(
                             onClick = {
@@ -161,9 +171,9 @@ fun containersTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Stop", fontFamily = font.font, color = font.fontColor)
+                            Text("Stop", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         TextButton(
                             onClick = {
@@ -178,9 +188,9 @@ fun containersTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Restart", fontFamily = font.font, color = font.fontColor)
+                            Text("Restart", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         if (container.containerStatus() == ContainerStatus.PAUSED) {
                             TextButton(
@@ -195,9 +205,9 @@ fun containersTable(
                                         }
                                     }
                                 },
-                                modifier = Modifier.padding(buttonPadding)
+                                contentPadding = buttonPadding
                             ) {
-                                Text("Unpause", color = Color(255, 193, 7))
+                                Text("Unpause", color = Color(255, 193, 7), fontSize = 12.sp, maxLines = 1, softWrap = false)
                             }
                         } else {
                             TextButton(
@@ -212,9 +222,9 @@ fun containersTable(
                                         }
                                     }
                                 },
-                                modifier = Modifier.padding(buttonPadding)
+                                contentPadding = buttonPadding
                             ) {
-                                Text("Pause", fontFamily = font.font, color = font.fontColor)
+                                Text("Pause", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                             }
                         }
                         TextButton(
@@ -231,9 +241,9 @@ fun containersTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Logs", fontFamily = font.font, color = font.fontColor)
+                            Text("Logs", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         TextButton(
                             onClick = {
@@ -241,9 +251,9 @@ fun containersTable(
                                 appState.openShells.add(container.id)
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Shell", fontFamily = font.font, color = font.fontColor)
+                            Text("Shell", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         TextButton(
                             onClick = {
@@ -259,9 +269,9 @@ fun containersTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Inspect", fontFamily = font.font, color = font.fontColor)
+                            Text("Inspect", fontFamily = font.font, color = font.fontColor, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                         TextButton(
                             onClick = {
@@ -276,9 +286,9 @@ fun containersTable(
                                     }
                                 }
                             },
-                            modifier = Modifier.padding(buttonPadding)
+                            contentPadding = buttonPadding
                         ) {
-                            Text("Remove", fontFamily = font.font, color = Color(220, 53, 69))
+                            Text("Remove", fontFamily = font.font, color = Color(220, 53, 69), fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
                     }
                 }

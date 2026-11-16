@@ -57,7 +57,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
-fun shell(appState: AppState, font: Font, scope: CoroutineScope) {
+fun shell(appState: AppState, font: Font, scope: CoroutineScope, modifier: Modifier = Modifier) {
     var input by remember { mutableStateOf("") }
     val outputs = remember { mutableStateMapOf<String, String>() }
     var currentShellID by remember { mutableStateOf("Host") }
@@ -102,8 +102,8 @@ fun shell(appState: AppState, font: Font, scope: CoroutineScope) {
     }
 
     ElevatedCard(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
+            .fillMaxWidth()
             .border(1.dp, Color(35, 55, 80), RoundedCornerShape(10.dp)),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
@@ -287,7 +287,7 @@ fun shell(appState: AppState, font: Font, scope: CoroutineScope) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(60.dp)
                     .background(Color(13, 21, 33))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically

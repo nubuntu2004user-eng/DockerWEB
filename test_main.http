@@ -72,3 +72,28 @@ Accept: application/json
 
 POST http://127.0.0.1:8081/removevolume?name=test-vol
 Accept: application/json
+
+###
+
+GET http://127.0.0.1:8081/networkstats
+Accept: text/event-stream
+
+###
+
+POST http://127.0.0.1:8081/createnetwork?name=test-net&driver=bridge&subnet=172.28.0.0/16&gateway=172.28.0.1
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8081/inspectnetwork?id=test-net
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/prunenetworks
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/removenetwork?id=test-net
+Accept: application/json

@@ -14,6 +14,7 @@ class AppState {
     val containers = mutableStateListOf<ContainerData>()
     val images = mutableStateListOf<ImageData>()
     val volumes = mutableStateListOf<VolumeData>()
+    val networks = mutableStateListOf<NetworkData>()
 
     var imageSearchQuery by mutableStateOf("")
     var isPullingImage by mutableStateOf(false)
@@ -23,6 +24,9 @@ class AppState {
 
     var volumeSearchQuery by mutableStateOf("")
     var showCreateVolumeSection by mutableStateOf(true)
+
+    var networkSearchQuery by mutableStateOf("")
+    var showCreateNetworkSection by mutableStateOf(true)
 
     val api = DockerApi()
 }

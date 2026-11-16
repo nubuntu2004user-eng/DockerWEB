@@ -338,6 +338,132 @@ def backup_volume(name: str, dest_dir: str = None):
     return {"status": "ok", "volume": name, "file_path": backup_full_path, "file_name": backup_file_name}
 
 
+def get_networks():
+    result = []
+    containers = client.containers.list(all=True)
+    container_status_map = {c.id: c.status for c in containers}
+    container_status_map.update({c.short_id: c.status for c in containers if hasattr(c, 'short_id')})
+    container_name_map = {c.id: c.name for c in containers}
+    container_name_map.update({c.short_id: c.name for c in containers if hasattr(c, 'short_id')})
+
+    networks = client.networks.list()
+    for net in networks:
+        attrs = net.attrs or {}
+        net_id = net.id
+        short_id = net.short_id.replace('sha256:', '') if hasattr(net, 'short_id') else net.id[:12]
+        name = net.name
+        driver = attrs.get('Driver', 'bridge')
+        scope = attrs.get('Scope', 'local')
+        internal = bool(attrs.get('Internal', False))
+        attachable = bool(attrs.get('Attachable', False))
+        ingress = bool(attrs.get('Ingress', False))
+        created = attrs.get('Created', '')
+        labels = attrs.get('Labels') or {}
+
+        # System networks are the default pre-defined bridge, host, null/none networks
+        is_system = name in ['bridge', 'host', 'none']
+
+        # Extract IPAM config (Subnet, Gateway)
+        ipam = attrs.get('IPAM') or {}
+        ipam_config = ipam.get('Config') or []
+        subnet = ""
+        gateway = ""
+        if ipam_config and len(ipam_config) > 0:
+            subnet = ipam_config[0].get('Subnet') or ""
+            gateway = ipam_config[0].get('Gateway') or ""
+
+        # Extract attached containers
+        net_containers = attrs.get('Containers') or {}
+        containers_list = []
+        for cid, cinfo in net_containers.items():
+            short_cid = cid[:12]
+            c_name = cinfo.get('Name') or container_name_map.get(cid, short_cid)
+            c_status = container_status_map.get(cid, container_status_map.get(short_cid, 'running'))
+            ipv4 = cinfo.get('IPv4Address', '')
+            ipv6 = cinfo.get('IPv6Address', '')
+            containers_list.append({
+                "id": short_cid,
+                "name": c_name,
+                "status": c_status,
+                "ipv4": ipv4,
+                "ipv6": ipv6
+            })
+
+        result.append({
+            "id": net_id,
+            "short_id": short_id,
+            "name": name,
+            "driver": driver,
+            "scope": scope,
+            "internal": internal,
+            "attachable": attachable,
+            "ingress": ingress,
+            "created": created,
+            "is_system": is_system,
+            "subnet": subnet,
+            "gateway": gateway,
+            "containers": containers_list,
+            "labels": labels
+        })
+    return json.dumps(result)
+
+
+def create_network(name: str, driver: str = "bridge", subnet: str = None, gateway: str = None, internal: bool = False, attachable: bool = True, labels: dict = None, options: dict = None):
+    kwargs = {
+        "name": name,
+        "driver": driver,
+        "internal": internal,
+        "attachable": attachable,
+        "check_duplicate": True
+    }
+    if labels:
+        kwargs["labels"] = labels
+    if options:
+        kwargs["options"] = options
+    if subnet:
+        ipam_pool = docker.types.IPAMPool(
+            subnet=subnet,
+            gateway=gateway if gateway else None
+        )
+        ipam_config = docker.types.IPAMConfig(
+            pool_configs=[ipam_pool]
+        )
+        kwargs["ipam"] = ipam_config
+    net = client.networks.create(**kwargs)
+    return net.attrs
+
+
+def remove_network(id_or_name: str):
+    net = client.networks.get(id_or_name)
+    return net.remove()
+
+
+def prune_networks(filters: dict = None):
+    return client.networks.prune(filters=filters)
+
+
+def inspect_network(id_or_name: str):
+    net = client.networks.get(id_or_name)
+    return json.dumps(net.attrs, indent=2, default=str)
+
+
+def connect_network(network_id: str, container_id: str, ipv4_address: str = None, ipv6_address: str = None, aliases: list = None):
+    net = client.networks.get(network_id)
+    kwargs = {}
+    if ipv4_address:
+        kwargs["ipv4_address"] = ipv4_address
+    if ipv6_address:
+        kwargs["ipv6_address"] = ipv6_address
+    if aliases:
+        kwargs["aliases"] = aliases
+    return net.connect(container_id, **kwargs)
+
+
+def disconnect_network(network_id: str, container_id: str, force: bool = False):
+    net = client.networks.get(network_id)
+    return net.disconnect(container_id, force=force)
+
+
 def close_shell(id: str):
     proc_or_stream = open_shells.pop(id, None)
     if proc_or_stream is None:

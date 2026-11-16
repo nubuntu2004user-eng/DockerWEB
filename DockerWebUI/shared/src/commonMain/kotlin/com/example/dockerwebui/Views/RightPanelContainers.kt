@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -102,8 +103,36 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
                 scope = scope,
                 searchQuery = appState.volumeSearchQuery
             )
+        } else if (appState.contentToDisplay == SelectedMode.NETWORKS) {
+            networksTopBar(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.networkSearchQuery,
+                onSearchChange = { appState.networkSearchQuery = it }
+            )
+
+            networksStatsCards(
+                font = font,
+                appState = appState
+            )
+
+            if (appState.showCreateNetworkSection) {
+                networksCreateSection(
+                    font = font,
+                    appState = appState,
+                    scope = scope
+                )
+            }
+
+            networksTable(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.networkSearchQuery
+            )
         }
 
-        shell(appState = appState , font = font, scope = scope)
+        shell(appState = appState , font = font, scope = scope, modifier = Modifier.weight(1f).heightIn(min = 220.dp))
     }
 }

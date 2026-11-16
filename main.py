@@ -305,3 +305,93 @@ async def backupvolume(name: str, dest_dir: str = None):
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/networkstats", response_class=EventSourceResponse)
+async def getnetworkstats() -> AsyncIterable[ServerSentEvent]:
+    while True:
+        payload = await asyncio.to_thread(client.get_networks)
+        yield ServerSentEvent(raw_data=payload)
+        await asyncio.sleep(2)
+
+
+@app.post("/createnetwork")
+async def createnetwork(name: str, driver: str = "bridge", subnet: str = None, gateway: str = None, labels: str = None):
+    try:
+        parsed_labels = {}
+        if labels:
+            try:
+                parsed_labels = json.loads(labels)
+            except Exception:
+                for pair in labels.split(","):
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        parsed_labels[k.strip()] = v.strip()
+                    elif pair.strip():
+                        parsed_labels[pair.strip()] = ""
+        res = await asyncio.to_thread(
+            client.create_network,
+            name=name,
+            driver=driver,
+            subnet=subnet.strip() if subnet and subnet.strip() else None,
+            gateway=gateway.strip() if gateway and gateway.strip() else None,
+            labels=parsed_labels if parsed_labels else None
+        )
+        return {"status": "ok", "network": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/removenetwork")
+async def removenetwork(id: str):
+    try:
+        await asyncio.to_thread(client.remove_network, id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/prunenetworks")
+async def prunenetworks():
+    try:
+        res = await asyncio.to_thread(client.prune_networks)
+        return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/inspectnetwork")
+async def inspectnetwork(id: str):
+    try:
+        return await asyncio.to_thread(client.inspect_network, id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/connectnetwork")
+async def connectnetwork(network_id: str, container_id: str, ipv4_address: str = None, ipv6_address: str = None):
+    try:
+        res = await asyncio.to_thread(
+            client.connect_network,
+            network_id=network_id,
+            container_id=container_id,
+            ipv4_address=ipv4_address.strip() if ipv4_address and ipv4_address.strip() else None,
+            ipv6_address=ipv6_address.strip() if ipv6_address and ipv6_address.strip() else None
+        )
+        return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/disconnectnetwork")
+async def disconnectnetwork(network_id: str, container_id: str, force: bool = False):
+    try:
+        res = await asyncio.to_thread(
+            client.disconnect_network,
+            network_id=network_id,
+            container_id=container_id,
+            force=force
+        )
+        return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

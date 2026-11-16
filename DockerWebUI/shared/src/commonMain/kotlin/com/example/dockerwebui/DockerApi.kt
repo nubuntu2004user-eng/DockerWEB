@@ -364,4 +364,91 @@ class DockerApi(
         }
         return response.bodyAsText()
     }
+
+    suspend fun createNetwork(
+        name: String,
+        driver: String = "bridge",
+        subnet: String? = null,
+        gateway: String? = null,
+        labels: String? = null
+    ): String {
+        val response = client.post("$baseUrl/createnetwork") {
+            parameter("name", name)
+            parameter("driver", driver)
+            if (!subnet.isNullOrBlank()) parameter("subnet", subnet)
+            if (!gateway.isNullOrBlank()) parameter("gateway", gateway)
+            if (!labels.isNullOrBlank()) parameter("labels", labels)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun removeNetwork(id: String): String {
+        val response = client.post("$baseUrl/removenetwork") {
+            parameter("id", id)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun pruneNetworks(): String {
+        val response = client.post("$baseUrl/prunenetworks")
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun inspectNetwork(id: String): String {
+        val response = client.get("$baseUrl/inspectnetwork") {
+            parameter("id", id)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        val text = response.bodyAsText()
+        return try {
+            json.decodeFromString<String>(text)
+        } catch (_: Exception) {
+            text
+        }
+    }
+
+    suspend fun connectNetwork(
+        networkId: String,
+        containerId: String,
+        ipv4: String? = null,
+        ipv6: String? = null
+    ): String {
+        val response = client.post("$baseUrl/connectnetwork") {
+            parameter("network_id", networkId)
+            parameter("container_id", containerId)
+            if (!ipv4.isNullOrBlank()) parameter("ipv4_address", ipv4)
+            if (!ipv6.isNullOrBlank()) parameter("ipv6_address", ipv6)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun disconnectNetwork(
+        networkId: String,
+        containerId: String,
+        force: Boolean = false
+    ): String {
+        val response = client.post("$baseUrl/disconnectnetwork") {
+            parameter("network_id", networkId)
+            parameter("container_id", containerId)
+            parameter("force", force)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
 }

@@ -135,6 +135,35 @@ fun App() {
             println("Exception in volumestats SSE:$e")
         }
     }
+    LaunchedEffect(Unit){
+        try{
+            client.sse(
+                host = "127.0.0.1",
+                port = 8081,
+                path = "/networkstats",
+                deserialize = { typeInfo, jsonString ->
+                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
+                    json.decodeFromString(serializer, jsonString)!!
+                }
+            ) {
+                incoming.collect { event ->
+                    event.data?.let { dataStr ->
+                        val networks = deserialize<List<NetworkData>>(dataStr)
+                        if (networks != null) {
+                            state.networks.clear()
+                            state.networks.addAll(networks)
+                        }
+                    }
+                }
+            }
+        }
+        catch(e: Exception){
+            if (e is CancellationException) {
+                ensureActive()
+            }
+            println("Exception in networkstats SSE:$e")
+        }
+    }
     Box(modifier = Modifier.fillMaxSize().background(color = Color(11, 18, 27))) {
         Row(modifier = Modifier.fillMaxSize()) {
             leftPanel(0.15f, appState = state, font = font)

@@ -320,7 +320,7 @@ fun volumesTable(
                                 modifier = Modifier.height(28.dp),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp)
                             ) {
-                                Text("Remove", fontSize = 11.sp, fontFamily = font.font, color = Color(255, 120, 120))
+                                Text("Remove", fontSize = 11.sp, fontFamily = font.font, color = Color(255, 120, 120), maxLines = 1, softWrap = false)
                             }
                         }
                     }
