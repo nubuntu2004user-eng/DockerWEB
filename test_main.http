@@ -1,99 +1,99 @@
 # Test your FastAPI endpoints
 
-GET http://127.0.0.1:8081/
+GET http://127.0.0.1:9456/
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/imagestats
+GET http://127.0.0.1:9456/imagestats
 Accept: text/event-stream
 
 ###
 
-GET http://127.0.0.1:8081/pullimage?image=alpine:latest
+GET http://127.0.0.1:9456/pullimage?image=alpine:latest
 Accept: text/event-stream
 
 ###
 
-GET http://127.0.0.1:8081/inspectimage?id=hello-world:latest
+GET http://127.0.0.1:9456/inspectimage?id=hello-world:latest
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/imagehistory?id=hello-world:latest
+GET http://127.0.0.1:9456/imagehistory?id=hello-world:latest
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/tagimage?id=hello-world:latest&repo=test-hello&tag=v1
+POST http://127.0.0.1:9456/tagimage?id=hello-world:latest&repo=test-hello&tag=v1
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/pruneimages
+POST http://127.0.0.1:9456/pruneimages
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/removeimage?id=test-hello:v1
+POST http://127.0.0.1:9456/removeimage?id=test-hello:v1
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/volumestats
+GET http://127.0.0.1:9456/volumestats
 Accept: text/event-stream
 
 ###
 
-POST http://127.0.0.1:8081/createvolume?name=test-vol&driver=local&labels=app%3Dtest
+POST http://127.0.0.1:9456/createvolume?name=test-vol&driver=local&labels=app%3Dtest
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/inspectvolume?name=test-vol
+GET http://127.0.0.1:9456/inspectvolume?name=test-vol
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/browsevolume?name=test-vol
+GET http://127.0.0.1:9456/browsevolume?name=test-vol
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/clonevolume?source_name=test-vol&target_name=test-vol-cloned
+POST http://127.0.0.1:9456/clonevolume?source_name=test-vol&target_name=test-vol-cloned
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/prunevolumes
+POST http://127.0.0.1:9456/prunevolumes
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/removevolume?name=test-vol
+POST http://127.0.0.1:9456/removevolume?name=test-vol
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/networkstats
+GET http://127.0.0.1:9456/networkstats
 Accept: text/event-stream
 
 ###
 
-POST http://127.0.0.1:8081/createnetwork?name=test-net&driver=bridge&subnet=172.28.0.0/16&gateway=172.28.0.1
+POST http://127.0.0.1:9456/createnetwork?name=test-net&driver=bridge&subnet=172.28.0.0/16&gateway=172.28.0.1
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8081/inspectnetwork?id=test-net
+GET http://127.0.0.1:9456/inspectnetwork?id=test-net
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/prunenetworks
+POST http://127.0.0.1:9456/prunenetworks
 Accept: application/json
 
 ###
 
-POST http://127.0.0.1:8081/removenetwork?id=test-net
+POST http://127.0.0.1:9456/removenetwork?id=test-net
 Accept: application/json

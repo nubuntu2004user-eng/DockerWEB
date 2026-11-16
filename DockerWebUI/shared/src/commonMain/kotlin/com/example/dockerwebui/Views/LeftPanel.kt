@@ -28,9 +28,9 @@ fun leftPanel(withToFill: Float , appState: AppState , font:Font){
         LeftPanelButton(name = "Images" , onClick = {appState.contentToDisplay = SelectedMode.IMAGES} , selectedMode = SelectedMode.IMAGES),
         LeftPanelButton(name = "Volumes" , onClick = {appState.contentToDisplay= SelectedMode.VOLUMES} , selectedMode = SelectedMode.VOLUMES),
         LeftPanelButton(name = "Networks" , onClick = {appState.contentToDisplay = SelectedMode.NETWORKS} , selectedMode = SelectedMode.NETWORKS),
-        LeftPanelButton(name = "Compose Stacks" , onClick = {appState.contentToDisplay=  SelectedMode.COMPONENTSTACKS} , selectedMode = SelectedMode.COMPONENTSTACKS),
-        LeftPanelButton(name = "AI" , onClick = {appState.contentToDisplay=  SelectedMode.TERMINAL} , selectedMode = SelectedMode.TERMINAL),
-        LeftPanelButton(name = "Settings" , onClick = {appState.contentToDisplay= SelectedMode.SETTINGS} , selectedMode = SelectedMode.SETTINGS),
+//        LeftPanelButton(name = "Compose Stacks" , onClick = {appState.contentToDisplay=  SelectedMode.COMPONENTSTACKS} , selectedMode = SelectedMode.COMPONENTSTACKS),
+//        LeftPanelButton(name = "AI" , onClick = {appState.contentToDisplay=  SelectedMode.TERMINAL} , selectedMode = SelectedMode.TERMINAL),
+//        LeftPanelButton(name = "Settings" , onClick = {appState.contentToDisplay= SelectedMode.SETTINGS} , selectedMode = SelectedMode.SETTINGS),
         )
 
 

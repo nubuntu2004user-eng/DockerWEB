@@ -1,0 +1,8 @@
+services:
+  web:
+    build: .
+    ports:
+      - "9456:9456"
+
+    volumes:
+       - /var/run/docker.sock:/var/run/docker.sock

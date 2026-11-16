@@ -52,7 +52,7 @@ fun App() {
         try{
             client.sse(
                 host = "127.0.0.1",
-                port = 8081,
+                port = 9456,
                 path = "/stats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -81,7 +81,7 @@ fun App() {
         try{
             client.sse(
                 host = "127.0.0.1",
-                port = 8081,
+                port = 9456,
                 path = "/imagestats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -110,7 +110,7 @@ fun App() {
         try{
             client.sse(
                 host = "127.0.0.1",
-                port = 8081,
+                port = 9456,
                 path = "/volumestats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -139,7 +139,7 @@ fun App() {
         try{
             client.sse(
                 host = "127.0.0.1",
-                port = 8081,
+                port = 9456,
                 path = "/networkstats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)

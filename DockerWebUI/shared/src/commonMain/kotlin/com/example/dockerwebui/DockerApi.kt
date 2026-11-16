@@ -14,7 +14,7 @@ class DockerApi(
     private val client: HttpClient = HttpClient(Js) {
         install(SSE)
     },
-    private val baseUrl: String = "http://127.0.0.1:8081"
+    private val baseUrl: String = "http://127.0.0.1:9456"
 ) {
     private val json = Json {
         ignoreUnknownKeys = true

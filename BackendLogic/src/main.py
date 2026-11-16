@@ -4,8 +4,9 @@ from collections.abc import AsyncIterable
 from fastapi import FastAPI, HTTPException
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
-from DockerLogic.src import Client
+from BackendLogic.src import Client
 
 client = Client
 app = FastAPI()
@@ -18,10 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
 
 
 @app.get("/stats", response_class=EventSourceResponse)
@@ -395,3 +392,5 @@ async def disconnectnetwork(network_id: str, container_id: str, force: bool = Fa
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+app.mount("/" , StaticFiles(directory="DockerWebUI/webApp/build/dist/wasmJs/productionExecutable") , name="webApp")

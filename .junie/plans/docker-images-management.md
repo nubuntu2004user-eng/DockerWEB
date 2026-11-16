@@ -53,7 +53,7 @@ The objective is to expand DockerWEB from container management to full-lifecycle
 # Technical Design
 
 ### Current Implementation
-- **Backend (`DockerLogic/src/Client.py`, `main.py`)**: Uses `docker.from_env()`. Currently contains container-specific logic (`client.containers.list()`, `stats()`, `stop()`, `restart()`, etc.) and streams container stats over SSE `/stats`.
+- **Backend (`../../BackendLogic`, `../../BackendLogic`)**: Uses `docker.from_env()`. Currently contains container-specific logic (`client.containers.list()`, `stats()`, `stop()`, `restart()`, etc.) and streams container stats over SSE `/stats`.
 - **Frontend (`DockerWebUI/`)**:
   - `AppState.kt` defines `SelectedMode.IMAGES`, but no UI view is currently rendered for this mode.
   - `DockerApi.kt` handles HTTP/SSE communication with the FastAPI backend on port `8081`.
@@ -71,10 +71,10 @@ The objective is to expand DockerWEB from container management to full-lifecycle
    - *Rationale*: Allows real-time calculation of overall pull progress and layer completion (`X of Y layers`) matching the UI mockup.
 
 ### Proposed Changes
-1. **`DockerLogic/src/Client.py`**:
+1. **`../../BackendLogic`**:
    - Implement `get_images()`, `pull_image_stream(name, tag)`, `remove_image(id, force)`, `tag_image(id, repo, tag)`, `prune_images()`, `inspect_image(id)`, `get_image_history(id)`, `import_image(path)`.
    - Clean up duplicate `close_shell` definition.
-2. **`main.py`**:
+2. **`../../BackendLogic`**:
    - Expose `GET /imagestats` (SSE), `GET /pullimage` (SSE), `POST /tagimage`, `POST /removeimage`, `POST /pruneimages`, `GET /inspectimage`, `GET /imagehistory`, `POST /importimage`, `POST /runimage`.
 3. **`DockerWebUI/shared/.../ImageData.kt`**:
    - Define data classes `ImageData`, `ContainerUsage`, `ImagePullProgress`, `ImageHistoryLayer`.
@@ -213,7 +213,7 @@ Verification will be performed across backend endpoints and frontend components 
 ### ✓ Step 1: Backend Image Operations and Logic
 Backend data retrieval and image manipulation routines are established in DockerLogic.
 
-- Add `get_images()` in `DockerLogic/src/Client.py` to retrieve all local Docker images, calculate virtual sizes, human-readable created timestamps, dangling flags, and correlate running/stopped containers via `client.containers.list(all=True)` to populate container usage mapping.
+- Add `get_images()` in `../../BackendLogic` to retrieve all local Docker images, calculate virtual sizes, human-readable created timestamps, dangling flags, and correlate running/stopped containers via `client.containers.list(all=True)` to populate container usage mapping.
 - Implement image lifecycle actions in `Client.py`: `tag_image(id, repo, tag)`, `remove_image(id, force)`, `prune_images()`, `inspect_image(id)`, `get_image_history(id)`, and `import_image(file_path)`.
 - Implement `pull_image_stream(repo_tag)` generator in `Client.py` using `client.api.pull(..., stream=True, decode=True)` to stream pull progress events (layer download/extraction percentages and layer counts).
 - Fix minor concurrency and redundant code in `Client.py` (removing duplicate `close_shell`).
@@ -221,9 +221,9 @@ Backend data retrieval and image manipulation routines are established in Docker
 ### ✓ Step 2: FastAPI Image REST & SSE Endpoints
 FastAPI endpoints expose image telemetry, streaming pull updates, and REST operations.
 
-- Add `GET /imagestats` SSE endpoint in `main.py` streaming real-time JSON image metrics and container bindings to clients.
-- Add `GET /pullimage` SSE endpoint in `main.py` streaming real-time layer-by-layer pull progress events.
-- Implement REST endpoints in `main.py`: `POST /tagimage`, `POST /removeimage`, `POST /pruneimages`, `GET /inspectimage`, `GET /imagehistory`, `POST /importimage`, and `POST /runimage`.
+- Add `GET /imagestats` SSE endpoint in `../../BackendLogic` streaming real-time JSON image metrics and container bindings to clients.
+- Add `GET /pullimage` SSE endpoint in `../../BackendLogic` streaming real-time layer-by-layer pull progress events.
+- Implement REST endpoints in `../../BackendLogic`: `POST /tagimage`, `POST /removeimage`, `POST /pruneimages`, `GET /inspectimage`, `GET /imagehistory`, `POST /importimage`, and `POST /runimage`.
 - Add test definitions in `test_main.http` covering the new image management API endpoints.
 
 ### ✓ Step 3: Frontend Models, API Client & State Management
