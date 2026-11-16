@@ -74,6 +74,34 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
                 scope = scope,
                 searchQuery = appState.imageSearchQuery
             )
+        } else if (appState.contentToDisplay == SelectedMode.VOLUMES) {
+            volumesTopBar(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.volumeSearchQuery,
+                onSearchChange = { appState.volumeSearchQuery = it }
+            )
+
+            volumesStatsCards(
+                font = font,
+                appState = appState
+            )
+
+            if (appState.showCreateVolumeSection) {
+                volumesCreateSection(
+                    font = font,
+                    appState = appState,
+                    scope = scope
+                )
+            }
+
+            volumesTable(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.volumeSearchQuery
+            )
         }
 
         shell(appState = appState , font = font, scope = scope)

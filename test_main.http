@@ -37,3 +37,38 @@ Accept: application/json
 
 POST http://127.0.0.1:8081/removeimage?id=test-hello:v1
 Accept: application/json
+
+###
+
+GET http://127.0.0.1:8081/volumestats
+Accept: text/event-stream
+
+###
+
+POST http://127.0.0.1:8081/createvolume?name=test-vol&driver=local&labels=app%3Dtest
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8081/inspectvolume?name=test-vol
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8081/browsevolume?name=test-vol
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/clonevolume?source_name=test-vol&target_name=test-vol-cloned
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/prunevolumes
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/removevolume?name=test-vol
+Accept: application/json

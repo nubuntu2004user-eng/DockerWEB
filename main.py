@@ -224,3 +224,84 @@ async def runimage(image: str, name: str = None, command: str = None):
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/volumestats", response_class=EventSourceResponse)
+async def getvolumestats() -> AsyncIterable[ServerSentEvent]:
+    while True:
+        payload = await asyncio.to_thread(client.get_volumes)
+        yield ServerSentEvent(raw_data=payload)
+        await asyncio.sleep(2)
+
+
+@app.post("/createvolume")
+async def createvolume(name: str, driver: str = "local", labels: str = None):
+    try:
+        parsed_labels = {}
+        if labels:
+            try:
+                parsed_labels = json.loads(labels)
+            except Exception:
+                # support key=value, key2=value2 format
+                for pair in labels.split(","):
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        parsed_labels[k.strip()] = v.strip()
+                    elif pair.strip():
+                        parsed_labels[pair.strip()] = ""
+        res = await asyncio.to_thread(client.create_volume, name, driver, parsed_labels)
+        return {"status": "ok", "volume": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/removevolume")
+async def removevolume(name: str, force: bool = False):
+    try:
+        await asyncio.to_thread(client.remove_volume, name, force)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/prunevolumes")
+async def prunevolumes():
+    try:
+        res = await asyncio.to_thread(client.prune_volumes)
+        return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/inspectvolume")
+async def inspectvolume(name: str):
+    try:
+        return await asyncio.to_thread(client.inspect_volume, name)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/browsevolume")
+async def browsevolume(name: str, path: str = "/"):
+    try:
+        return await asyncio.to_thread(client.browse_volume, name, path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/clonevolume")
+async def clonevolume(source_name: str, target_name: str):
+    try:
+        res = await asyncio.to_thread(client.clone_volume, source_name, target_name)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/backupvolume")
+async def backupvolume(name: str, dest_dir: str = None):
+    try:
+        res = await asyncio.to_thread(client.backup_volume, name, dest_dir)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

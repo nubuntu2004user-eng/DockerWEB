@@ -275,4 +275,93 @@ class DockerApi(
             }
         }
     }
+
+    suspend fun createVolume(name: String, driver: String = "local", labels: String? = null): String {
+        val response = client.post("$baseUrl/createvolume") {
+            parameter("name", name)
+            parameter("driver", driver)
+            if (!labels.isNullOrBlank()) parameter("labels", labels)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun removeVolume(name: String, force: Boolean = false): String {
+        val response = client.post("$baseUrl/removevolume") {
+            parameter("name", name)
+            parameter("force", force)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun pruneVolumes(): String {
+        val response = client.post("$baseUrl/prunevolumes")
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun inspectVolume(name: String): String {
+        val response = client.get("$baseUrl/inspectvolume") {
+            parameter("name", name)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        val text = response.bodyAsText()
+        return try {
+            json.decodeFromString<String>(text)
+        } catch (_: Exception) {
+            text
+        }
+    }
+
+    suspend fun browseVolume(name: String, path: String = "/"): VolumeBrowseResponse {
+        val response = client.get("$baseUrl/browsevolume") {
+            parameter("name", name)
+            parameter("path", path)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        val text = response.bodyAsText()
+        val parsedJson = try {
+            json.decodeFromString<String>(text)
+        } catch (_: Exception) {
+            text
+        }
+        return try {
+            json.decodeFromString<VolumeBrowseResponse>(parsedJson)
+        } catch (_: Exception) {
+            VolumeBrowseResponse(path = path, raw = text)
+        }
+    }
+
+    suspend fun cloneVolume(sourceName: String, targetName: String): String {
+        val response = client.post("$baseUrl/clonevolume") {
+            parameter("source_name", sourceName)
+            parameter("target_name", targetName)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun backupVolume(name: String, destDir: String? = null): String {
+        val response = client.post("$baseUrl/backupvolume") {
+            parameter("name", name)
+            if (!destDir.isNullOrBlank()) parameter("dest_dir", destDir)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
 }

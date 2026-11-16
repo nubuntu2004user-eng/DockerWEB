@@ -13,12 +13,16 @@ class AppState {
     val toastState = ToastState()
     val containers = mutableStateListOf<ContainerData>()
     val images = mutableStateListOf<ImageData>()
+    val volumes = mutableStateListOf<VolumeData>()
 
     var imageSearchQuery by mutableStateOf("")
     var isPullingImage by mutableStateOf(false)
     var pullStatusText by mutableStateOf("")
     var pullProgressPercentage by mutableStateOf(0f)
     var showPullSection by mutableStateOf(false)
+
+    var volumeSearchQuery by mutableStateOf("")
+    var showCreateVolumeSection by mutableStateOf(true)
 
     val api = DockerApi()
 }
