@@ -48,7 +48,33 @@ fun rightPanelContainers(withToFill: Float, font: Font, appState: AppState, scop
             appState = appState,
             scope = scope,
             searchQuery = userInputSearch
-        )}
+        )} else if (appState.contentToDisplay == SelectedMode.IMAGES) {
+            imagesTopBar(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.imageSearchQuery,
+                onSearchChange = { appState.imageSearchQuery = it }
+            )
+
+            imagesStatsCards(
+                font = font,
+                appState = appState
+            )
+
+            imagesPullSection(
+                font = font,
+                appState = appState,
+                scope = scope
+            )
+
+            imagesTable(
+                font = font,
+                appState = appState,
+                scope = scope,
+                searchQuery = appState.imageSearchQuery
+            )
+        }
 
         shell(appState = appState , font = font, scope = scope)
     }

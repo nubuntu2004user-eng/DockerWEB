@@ -166,4 +166,113 @@ class DockerApi(
             }
         }
     }
+
+    suspend fun tagImage(id: String, repo: String, tag: String = "latest"): String {
+        val response = client.post("$baseUrl/tagimage") {
+            parameter("id", id)
+            parameter("repo", repo)
+            parameter("tag", tag)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun removeImage(id: String, force: Boolean = false): String {
+        val response = client.post("$baseUrl/removeimage") {
+            parameter("id", id)
+            parameter("force", force)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun pruneImages(danglingOnly: Boolean = false): String {
+        val response = client.post("$baseUrl/pruneimages") {
+            parameter("dangling_only", danglingOnly)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun inspectImage(id: String): String {
+        val response = client.get("$baseUrl/inspectimage") {
+            parameter("id", id)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        val text = response.bodyAsText()
+        return try {
+            json.decodeFromString<String>(text)
+        } catch (_: Exception) {
+            text
+        }
+    }
+
+    suspend fun getImageHistory(id: String): List<ImageHistoryLayer> {
+        val response = client.get("$baseUrl/imagehistory") {
+            parameter("id", id)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        val text = response.bodyAsText()
+        val parsedJson = try {
+            json.decodeFromString<String>(text)
+        } catch (_: Exception) {
+            text
+        }
+        return try {
+            json.decodeFromString<List<ImageHistoryLayer>>(parsedJson)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun importImage(path: String): String {
+        val response = client.post("$baseUrl/importimage") {
+            parameter("path", path)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun runImage(image: String, name: String? = null, command: String? = null): String {
+        val response = client.post("$baseUrl/runimage") {
+            parameter("image", image)
+            if (!name.isNullOrBlank()) parameter("name", name)
+            if (!command.isNullOrBlank()) parameter("command", command)
+        }
+        if (response.status.value !in 200..299) {
+            throw Exception(response.bodyAsText())
+        }
+        return response.bodyAsText()
+    }
+
+    suspend fun streamPullImage(image: String, onProgress: (ImagePullProgress) -> Unit) {
+        client.sse(
+            urlString = "$baseUrl/pullimage",
+            request = {
+                parameter("image", image)
+            }
+        ) {
+            incoming.collect { event ->
+                event.data?.let { rawJson ->
+                    try {
+                        val progressObj = json.decodeFromString<ImagePullProgress>(rawJson)
+                        onProgress(progressObj)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+    }
 }

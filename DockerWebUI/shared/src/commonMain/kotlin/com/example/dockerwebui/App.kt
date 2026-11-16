@@ -77,6 +77,35 @@ fun App() {
             println("Exception:$e")
         }
     }
+    LaunchedEffect(Unit){
+        try{
+            client.sse(
+                host = "127.0.0.1",
+                port = 8081,
+                path = "/imagestats",
+                deserialize = { typeInfo, jsonString ->
+                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
+                    json.decodeFromString(serializer, jsonString)!!
+                }
+            ) {
+                incoming.collect { event ->
+                    event.data?.let { dataStr ->
+                        val images = deserialize<List<ImageData>>(dataStr)
+                        if (images != null) {
+                            state.images.clear()
+                            state.images.addAll(images)
+                        }
+                    }
+                }
+            }
+        }
+        catch(e: Exception){
+            if (e is CancellationException) {
+                ensureActive()
+            }
+            println("Exception in imagestats SSE:$e")
+        }
+    }
     Box(modifier = Modifier.fillMaxSize().background(color = Color(11, 18, 27))) {
         Row(modifier = Modifier.fillMaxSize()) {
             leftPanel(0.15f, appState = state, font = font)

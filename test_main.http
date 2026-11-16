@@ -1,11 +1,39 @@
 # Test your FastAPI endpoints
 
-GET http://127.0.0.1:8000/
+GET http://127.0.0.1:8081/
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8000/hello/User
+GET http://127.0.0.1:8081/imagestats
+Accept: text/event-stream
+
+###
+
+GET http://127.0.0.1:8081/pullimage?image=alpine:latest
+Accept: text/event-stream
+
+###
+
+GET http://127.0.0.1:8081/inspectimage?id=hello-world:latest
 Accept: application/json
 
 ###
+
+GET http://127.0.0.1:8081/imagehistory?id=hello-world:latest
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/tagimage?id=hello-world:latest&repo=test-hello&tag=v1
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/pruneimages
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8081/removeimage?id=test-hello:v1
+Accept: application/json

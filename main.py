@@ -1,4 +1,5 @@
 import asyncio
+import json
 from collections.abc import AsyncIterable
 from fastapi import FastAPI, HTTPException
 from fastapi.sse import EventSourceResponse, ServerSentEvent
@@ -29,6 +30,28 @@ async def getstats() -> AsyncIterable[ServerSentEvent]:
         payload = await asyncio.to_thread(client.get_stats)
         yield ServerSentEvent(raw_data=payload)
         await asyncio.sleep(2)
+
+
+@app.get("/imagestats", response_class=EventSourceResponse)
+async def getimagestats() -> AsyncIterable[ServerSentEvent]:
+    while True:
+        payload = await asyncio.to_thread(client.get_images)
+        yield ServerSentEvent(raw_data=payload)
+        await asyncio.sleep(2)
+
+
+@app.get("/pullimage", response_class=EventSourceResponse)
+async def pullimage(image: str) -> AsyncIterable[ServerSentEvent]:
+    try:
+        gen = client.pull_image_stream(image)
+        while True:
+            event = await asyncio.to_thread(next, gen, None)
+            if event is None:
+                break
+            yield ServerSentEvent(raw_data=json.dumps(event))
+            await asyncio.sleep(0)
+    except Exception as e:
+        yield ServerSentEvent(raw_data=json.dumps({"error": str(e)}))
 
 
 @app.post("/stopcontainer")
@@ -135,3 +158,69 @@ async def add(name: str):
 @app.post("/closeshell")
 async def close(id:str):
     client.close_shell(id)
+
+
+@app.post("/tagimage")
+async def tagimage(id: str, repo: str, tag: str = "latest"):
+    try:
+        await asyncio.to_thread(client.tag_image, id, repo, tag)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/removeimage")
+async def removeimage(id: str, force: bool = False):
+    try:
+        await asyncio.to_thread(client.remove_image, id, force)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/pruneimages")
+async def pruneimages(dangling_only: bool = False):
+    try:
+        res = await asyncio.to_thread(client.prune_images, dangling_only)
+        return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/inspectimage")
+async def inspectimage(id: str):
+    try:
+        return await asyncio.to_thread(client.inspect_image, id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/imagehistory")
+async def imagehistory(id: str):
+    try:
+        return await asyncio.to_thread(client.get_image_history, id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/importimage")
+async def importimage(path: str):
+    try:
+        await asyncio.to_thread(client.import_image, path)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/runimage")
+async def runimage(image: str, name: str = None, command: str = None):
+    try:
+        kwargs = {"image": image, "detach": True}
+        if name:
+            kwargs["name"] = name
+        if command:
+            kwargs["command"] = command
+        await asyncio.to_thread(client.client.containers.run, **kwargs)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

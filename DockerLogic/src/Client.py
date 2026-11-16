@@ -66,10 +66,97 @@ def prune_containers():
 def add_container(name: str):
     client.containers.run(image=name, detach=True)
 
-def close_shell(id:str):
-    stream = open_shells.pop(id, None)
-    if stream:
-        stream.close()
+
+def get_images():
+    result = []
+    containers = client.containers.list(all=True)
+    image_usage_map = {}
+    for c in containers:
+        img_id = getattr(c.image, 'id', None) or c.attrs.get('Image', '')
+        if img_id not in image_usage_map:
+            image_usage_map[img_id] = []
+        image_usage_map[img_id].append({
+            "name": c.name,
+            "status": c.status,
+            "id": c.short_id if hasattr(c, 'short_id') else c.id[:12]
+        })
+
+    images = client.images.list(all=True)
+    for img in images:
+        img_id = img.id
+        short_id = img.short_id.replace('sha256:', '') if hasattr(img, 'short_id') else img.id.replace('sha256:', '')[:12]
+        size = img.attrs.get('Size', 0)
+        created = img.attrs.get('Created', '')
+        tags = img.tags
+        used_by = image_usage_map.get(img_id, [])
+
+        if not tags:
+            result.append({
+                "id": img_id,
+                "short_id": short_id,
+                "repository": "<none>",
+                "tag": "<none>",
+                "size": size,
+                "created": created,
+                "dangling": True,
+                "used_by": used_by
+            })
+        else:
+            for repo_tag in tags:
+                if ":" in repo_tag:
+                    repo, tag = repo_tag.rsplit(":", 1)
+                else:
+                    repo, tag = repo_tag, "latest"
+                result.append({
+                    "id": img_id,
+                    "short_id": short_id,
+                    "repository": repo,
+                    "tag": tag,
+                    "size": size,
+                    "created": created,
+                    "dangling": False,
+                    "used_by": used_by
+                })
+    return json.dumps(result)
+
+
+def tag_image(id: str, repo: str, tag: str = None):
+    img = client.images.get(id)
+    return img.tag(repository=repo, tag=tag)
+
+
+def remove_image(id: str, force: bool = False):
+    return client.images.remove(image=id, force=force)
+
+
+def prune_images(dangling_only: bool = False):
+    filters = {'dangling': True} if dangling_only else None
+    return client.images.prune(filters=filters)
+
+
+def inspect_image(id: str):
+    img = client.images.get(id)
+    return json.dumps(img.attrs, indent=2, default=str)
+
+
+def get_image_history(id: str):
+    img = client.images.get(id)
+    return json.dumps(img.history(), indent=2, default=str)
+
+
+def import_image(file_path: str):
+    with open(file_path, "rb") as f:
+        return client.images.load(f.read())
+
+
+def pull_image_stream(name: str, tag: str = None):
+    if tag:
+        stream = client.api.pull(name, tag=tag, stream=True, decode=True)
+    else:
+        stream = client.api.pull(name, stream=True, decode=True)
+    for line in stream:
+        yield line
+
 
 def host_shell(cmd: str):
     process = subprocess.Popen(
