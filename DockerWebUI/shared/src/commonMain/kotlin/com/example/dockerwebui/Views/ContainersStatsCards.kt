@@ -58,7 +58,7 @@ fun containersStatsCards(font: Font, appState: AppState) {
             colors = CardDefaults.cardColors(containerColor = secondaryColor)
         ) {
             val totalUsedBytes = runningContainers.sumOf { it.memoryUsageBytes() }
-            val hostLimitBytes = appState.containers.mapNotNull { it.memoryStats?.limit }.maxOrNull() ?: 0L
+            val hostLimitBytes = appState.containers.maxOfOrNull { it.memoryLimit } ?: 0L
             val ramPercentage = if (hostLimitBytes > 0L) {
                 ((totalUsedBytes.toDouble() / hostLimitBytes.toDouble()) * 1000.0).roundToInt() / 10.0
             } else 0.0

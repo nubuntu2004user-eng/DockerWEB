@@ -7,14 +7,12 @@ import kotlin.math.roundToInt
 @Serializable
 data class ContainerUsage(
     val name: String,
-    val status: String,
-    val id: String
+    val status: String
 )
 
 @Serializable
 data class ImageData(
     val id: String,
-    @SerialName("short_id") val shortId: String,
     val repository: String,
     val tag: String,
     val size: Long,
@@ -22,6 +20,9 @@ data class ImageData(
     val dangling: Boolean = false,
     @SerialName("used_by") val usedBy: List<ContainerUsage> = emptyList()
 ) {
+    val shortId: String
+        get() = id.removePrefix("sha256:").take(12)
+
     fun isUsed(): Boolean = usedBy.isNotEmpty()
 
     fun formattedSize(): String {

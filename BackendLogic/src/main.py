@@ -1,8 +1,9 @@
 import asyncio
 import json
 import os
+import time
 from collections.abc import AsyncIterable
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from starlette.middleware.cors import CORSMiddleware
@@ -34,26 +35,117 @@ try:
 except Exception as e:
     print(f"Failed to load config.json: {e}")
 
+
+class UnifiedSSEBroadcaster:
+    """Shares a single Docker polling loop across all connected /events SSE clients."""
+
+    def __init__(self, poll_interval: float = 2.0, keepalive_interval: float = 15.0):
+        self._poll_interval = poll_interval
+        self._keepalive_interval = keepalive_interval
+        self._subscribers: set[asyncio.Queue[str | None]] = set()
+        self._task: asyncio.Task | None = None
+        self._refresh_event = asyncio.Event()
+        self._last_section_json: dict[str, str] = {}
+        self._latest_full_json: str | None = None
+        self._last_emit_ts: float = 0.0
+
+    def subscribe(self) -> asyncio.Queue[str | None]:
+        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=4)
+        self._subscribers.add(queue)
+        if self._latest_full_json is not None:
+            queue.put_nowait(self._latest_full_json)
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._run_loop())
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue[str | None]) -> None:
+        self._subscribers.discard(queue)
+        if not self._subscribers and self._task is not None and not self._task.done():
+            self._task.cancel()
+            self._task = None
+            self._last_section_json.clear()
+            self._latest_full_json = None
+
+    def notify_refresh(self) -> None:
+        """Wake the collector loop immediately after a state-changing API call."""
+        self._refresh_event.set()
+
+    def _enqueue(self, item: str | None) -> None:
+        for queue in list(self._subscribers):
+            if queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            try:
+                queue.put_nowait(item)
+            except asyncio.QueueFull:
+                pass
+
+    async def _run_loop(self) -> None:
+        try:
+            while self._subscribers:
+                self._refresh_event.clear()
+                try:
+                    snapshot = await asyncio.to_thread(client.get_unified_snapshot)
+                except Exception as exc:
+                    print(f"Error collecting unified Docker snapshot: {exc}")
+                    snapshot = None
+
+                now = time.monotonic()
+                if snapshot is not None:
+                    delta: dict[str, list[dict]] = {}
+                    for section, items in snapshot.items():
+                        serialized = json.dumps(items, separators=(",", ":"))
+                        if self._last_section_json.get(section) != serialized:
+                            self._last_section_json[section] = serialized
+                            delta[section] = items
+
+                    self._latest_full_json = json.dumps(snapshot, separators=(",", ":"))
+
+                    if delta:
+                        payload = json.dumps(delta, separators=(",", ":"))
+                        self._enqueue(payload)
+                        self._last_emit_ts = now
+                    elif now - self._last_emit_ts >= self._keepalive_interval:
+                        self._enqueue(None)
+                        self._last_emit_ts = now
+
+                try:
+                    await asyncio.wait_for(self._refresh_event.wait(), timeout=self._poll_interval)
+                except asyncio.TimeoutError:
+                    pass
+        except asyncio.CancelledError:
+            pass
+
+
+broadcaster = UnifiedSSEBroadcaster()
+
+
 @app.get("/config.json")
 async def get_config():
     return config_data
 
 
+@app.get("/events", response_class=EventSourceResponse)
+async def events_stream(request: Request) -> AsyncIterable[ServerSentEvent]:
+    queue = broadcaster.subscribe()
+    try:
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                payload = await asyncio.wait_for(queue.get(), timeout=15.0)
+            except asyncio.TimeoutError:
+                yield ServerSentEvent(comment="keepalive")
+                continue
 
-@app.get("/stats", response_class=EventSourceResponse)
-async def getstats() -> AsyncIterable[ServerSentEvent]:
-    while True:
-        payload = await asyncio.to_thread(client.get_stats)
-        yield ServerSentEvent(raw_data=payload)
-        await asyncio.sleep(2)
-
-
-@app.get("/imagestats", response_class=EventSourceResponse)
-async def getimagestats() -> AsyncIterable[ServerSentEvent]:
-    while True:
-        payload = await asyncio.to_thread(client.get_images)
-        yield ServerSentEvent(raw_data=payload)
-        await asyncio.sleep(2)
+            if payload is None:
+                yield ServerSentEvent(comment="keepalive")
+            else:
+                yield ServerSentEvent(raw_data=payload)
+    finally:
+        broadcaster.unsubscribe(queue)
 
 
 @app.get("/pullimage", response_class=EventSourceResponse)
@@ -66,6 +158,7 @@ async def pullimage(image: str) -> AsyncIterable[ServerSentEvent]:
                 break
             yield ServerSentEvent(raw_data=json.dumps(event))
             await asyncio.sleep(0)
+        broadcaster.notify_refresh()
     except Exception as e:
         yield ServerSentEvent(raw_data=json.dumps({"error": str(e)}))
 
@@ -74,6 +167,7 @@ async def pullimage(image: str) -> AsyncIterable[ServerSentEvent]:
 async def stop(id: str):
     try:
         await asyncio.to_thread(client.stop_container, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -83,6 +177,7 @@ async def stop(id: str):
 async def restart(id: str):
     try:
         await asyncio.to_thread(client.restart_container, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -92,6 +187,7 @@ async def restart(id: str):
 async def pause(id: str):
     try:
         await asyncio.to_thread(client.pause_container, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -101,6 +197,7 @@ async def pause(id: str):
 async def unpause(id: str):
     try:
         await asyncio.to_thread(client.unpause_container, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -118,6 +215,7 @@ async def logs(id: str):
 async def remove(id: str):
     try:
         await asyncio.to_thread(client.remove_container, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -162,7 +260,9 @@ async def inspect(id: str):
 @app.post("/prunecontainers")
 async def prune():
     try:
-        return await asyncio.to_thread(client.prune_containers)
+        res = await asyncio.to_thread(client.prune_containers)
+        broadcaster.notify_refresh()
+        return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -171,6 +271,7 @@ async def prune():
 async def add(name: str):
     try:
         await asyncio.to_thread(client.add_container, name)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -184,6 +285,7 @@ async def close(id:str):
 async def tagimage(id: str, repo: str, tag: str = "latest"):
     try:
         await asyncio.to_thread(client.tag_image, id, repo, tag)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -193,6 +295,7 @@ async def tagimage(id: str, repo: str, tag: str = "latest"):
 async def removeimage(id: str, force: bool = False):
     try:
         await asyncio.to_thread(client.remove_image, id, force)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -202,6 +305,7 @@ async def removeimage(id: str, force: bool = False):
 async def pruneimages(dangling_only: bool = False):
     try:
         res = await asyncio.to_thread(client.prune_images, dangling_only)
+        broadcaster.notify_refresh()
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -227,6 +331,7 @@ async def imagehistory(id: str):
 async def importimage(path: str):
     try:
         await asyncio.to_thread(client.import_image, path)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -241,17 +346,10 @@ async def runimage(image: str, name: str = None, command: str = None):
         if command:
             kwargs["command"] = command
         await asyncio.to_thread(client.client.containers.run, **kwargs)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/volumestats", response_class=EventSourceResponse)
-async def getvolumestats() -> AsyncIterable[ServerSentEvent]:
-    while True:
-        payload = await asyncio.to_thread(client.get_volumes)
-        yield ServerSentEvent(raw_data=payload)
-        await asyncio.sleep(2)
 
 
 @app.post("/createvolume")
@@ -270,6 +368,7 @@ async def createvolume(name: str, driver: str = "local", labels: str = None):
                     elif pair.strip():
                         parsed_labels[pair.strip()] = ""
         res = await asyncio.to_thread(client.create_volume, name, driver, parsed_labels)
+        broadcaster.notify_refresh()
         return {"status": "ok", "volume": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -279,6 +378,7 @@ async def createvolume(name: str, driver: str = "local", labels: str = None):
 async def removevolume(name: str, force: bool = False):
     try:
         await asyncio.to_thread(client.remove_volume, name, force)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -288,6 +388,7 @@ async def removevolume(name: str, force: bool = False):
 async def prunevolumes():
     try:
         res = await asyncio.to_thread(client.prune_volumes)
+        broadcaster.notify_refresh()
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -313,6 +414,7 @@ async def browsevolume(name: str, path: str = "/"):
 async def clonevolume(source_name: str, target_name: str):
     try:
         res = await asyncio.to_thread(client.clone_volume, source_name, target_name)
+        broadcaster.notify_refresh()
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -325,14 +427,6 @@ async def backupvolume(name: str, dest_dir: str = None):
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/networkstats", response_class=EventSourceResponse)
-async def getnetworkstats() -> AsyncIterable[ServerSentEvent]:
-    while True:
-        payload = await asyncio.to_thread(client.get_networks)
-        yield ServerSentEvent(raw_data=payload)
-        await asyncio.sleep(2)
 
 
 @app.post("/createnetwork")
@@ -357,6 +451,7 @@ async def createnetwork(name: str, driver: str = "bridge", subnet: str = None, g
             gateway=gateway.strip() if gateway and gateway.strip() else None,
             labels=parsed_labels if parsed_labels else None
         )
+        broadcaster.notify_refresh()
         return {"status": "ok", "network": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -366,6 +461,7 @@ async def createnetwork(name: str, driver: str = "bridge", subnet: str = None, g
 async def removenetwork(id: str):
     try:
         await asyncio.to_thread(client.remove_network, id)
+        broadcaster.notify_refresh()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -375,6 +471,7 @@ async def removenetwork(id: str):
 async def prunenetworks():
     try:
         res = await asyncio.to_thread(client.prune_networks)
+        broadcaster.notify_refresh()
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -398,6 +495,7 @@ async def connectnetwork(network_id: str, container_id: str, ipv4_address: str =
             ipv4_address=ipv4_address.strip() if ipv4_address and ipv4_address.strip() else None,
             ipv6_address=ipv6_address.strip() if ipv6_address and ipv6_address.strip() else None
         )
+        broadcaster.notify_refresh()
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -412,6 +510,7 @@ async def disconnectnetwork(network_id: str, container_id: str, force: bool = Fa
             container_id=container_id,
             force=force
         )
+        broadcaster.notify_refresh()
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -1,24 +1,170 @@
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
 import subprocess
 import tarfile
 import tempfile
+import threading
+import time
 import docker
 
 client = docker.from_env()
 
 open_shells = {}
 
-def get_stats():
+_prev_cpu_lock = threading.Lock()
+_prev_cpu_samples: dict[str, tuple[int, int]] = {}
+
+_df_cache_lock = threading.Lock()
+_df_volumes_cache: dict[str, int] = {}
+_df_cache_ts: float = 0.0
+_DF_CACHE_TTL_SECONDS: float = 30.0
+_ANONYMOUS_VOLUME_RE = re.compile(r'^[0-9a-f]{64}$', re.IGNORECASE)
+
+
+def invalidate_volume_df_cache():
+    """Invalidate the cached docker system df volume size map."""
+    global _df_cache_ts
+    with _df_cache_lock:
+        _df_cache_ts = 0.0
+
+
+def _get_cached_volume_sizes() -> dict[str, int]:
+    """Return cached volume disk usage sizes, refreshing via client.df() at most once per TTL."""
+    global _df_volumes_cache, _df_cache_ts
+    now = time.monotonic()
+    with _df_cache_lock:
+        if now - _df_cache_ts < _DF_CACHE_TTL_SECONDS and _df_cache_ts > 0.0:
+            return dict(_df_volumes_cache)
+
+    fresh: dict[str, int] = {}
+    try:
+        df_data = client.df()
+        for v in df_data.get('Volumes', []) or []:
+            if 'Name' in v:
+                usage = v.get('UsageData') or {}
+                size = usage.get('Size', 0)
+                if size is not None and size >= 0:
+                    fresh[v['Name']] = size
+    except Exception:
+        with _df_cache_lock:
+            return dict(_df_volumes_cache)
+
+    with _df_cache_lock:
+        _df_volumes_cache = fresh
+        _df_cache_ts = time.monotonic()
+        return dict(_df_volumes_cache)
+
+
+def _compute_cpu_percent(container_id: str, stats: dict) -> float:
+    """Compute container CPU usage percentage using consecutive one-shot samples."""
+    cpu_stats = stats.get("cpu_stats") or {}
+    cpu_usage = cpu_stats.get("cpu_usage") or {}
+    total_usage = int(cpu_usage.get("total_usage") or 0)
+    system_usage = int(cpu_stats.get("system_cpu_usage") or 0)
+    online_cpus = (
+        cpu_stats.get("online_cpus")
+        or len(cpu_usage.get("percpu_usage") or [])
+        or 1
+    )
+
+    with _prev_cpu_lock:
+        prev_sample = _prev_cpu_samples.get(container_id)
+        _prev_cpu_samples[container_id] = (total_usage, system_usage)
+
+    if prev_sample is None:
+        precpu = stats.get("precpu_stats") or {}
+        prev_total = int((precpu.get("cpu_usage") or {}).get("total_usage") or 0)
+        prev_system = int(precpu.get("system_cpu_usage") or 0)
+    else:
+        prev_total, prev_system = prev_sample
+
+    cpu_delta = total_usage - prev_total
+    system_delta = system_usage - prev_system
+    if system_delta > 0 and cpu_delta > 0 and (prev_sample is not None or prev_system > 0):
+        pct = (cpu_delta / system_delta) * online_cpus * 100.0
+        return round(pct, 2)
+    return 0.0
+
+
+def _extract_memory_usage(stats: dict) -> tuple[int, int]:
+    """Return (memory_usage_bytes, memory_limit_bytes) excluding page cache."""
+    mem_stats = stats.get("memory_stats") or {}
+    raw_usage = int(mem_stats.get("usage") or 0)
+    mem_detail = mem_stats.get("stats") or {}
+    cache = 0
+    for key in ("inactive_file", "total_inactive_file", "cache"):
+        val = mem_detail.get(key)
+        if val is not None:
+            cache = int(val)
+            break
+    usage = max(0, raw_usage - cache)
+    limit = int(mem_stats.get("limit") or 0)
+    return usage, limit
+
+
+def _fetch_running_container_stat(container) -> dict:
+    """Fetch one-shot stats for a single running container and return only UI-required fields."""
+    os_type = (container.attrs or {}).get("Platform") or "linux"
+    try:
+        raw = client.api.stats(container.id, stream=False, one_shot=True)
+        os_type = raw.get("os_type") or os_type
+        cpu_percent = _compute_cpu_percent(container.id, raw)
+        mem_usage, mem_limit = _extract_memory_usage(raw)
+    except Exception:
+        cpu_percent = 0.0
+        mem_usage = 0
+        mem_limit = 0
+
+    return {
+        "id": container.id,
+        "name": container.name,
+        "status": container.status,
+        "os_type": os_type,
+        "cpu_percent": cpu_percent,
+        "memory_usage": mem_usage,
+        "memory_limit": mem_limit,
+    }
+
+
+def _build_containers_data(containers: list) -> list[dict]:
+    """Build slimmed container entries, polling stats concurrently only for running containers."""
+    running = [c for c in containers if c.status == "running"]
+    running_ids = {c.id for c in running}
+
+    with _prev_cpu_lock:
+        stale_ids = [cid for cid in _prev_cpu_samples if cid not in running_ids]
+        for cid in stale_ids:
+            del _prev_cpu_samples[cid]
+
+    running_map: dict[str, dict] = {}
+    if running:
+        workers = min(8, len(running))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for entry in pool.map(_fetch_running_container_stat, running):
+                running_map[entry["id"]] = entry
+
     result = []
+    for c in containers:
+        if c.id in running_map:
+            result.append(running_map[c.id])
+        else:
+            result.append({
+                "id": c.id,
+                "name": c.name,
+                "status": c.status,
+                "os_type": (c.attrs or {}).get("Platform") or "linux",
+                "cpu_percent": 0.0,
+                "memory_usage": 0,
+                "memory_limit": 0,
+            })
+    return result
+
+
+def get_stats():
     containers = client.containers.list(all=True)
-    for dockerContainer in containers:
-        stats = dockerContainer.stats(stream=False)
-        stats["status"] = dockerContainer.status
-        result.append(stats)
-    output = json.dumps(result)
-    return output
+    return json.dumps(_build_containers_data(containers))
 
 
 def stop_container(id: str):
@@ -71,27 +217,23 @@ def add_container(name: str):
     client.containers.run(image=name, detach=True)
 
 
-def get_images():
+def _build_images_data(containers: list) -> list[dict]:
+    """Build slimmed image entries using a shared container list."""
     result = []
-    containers = client.containers.list(all=True)
-    image_usage_map = {}
+    image_usage_map: dict[str, list[dict]] = {}
     for c in containers:
         try:
             img_id = c.image.id if c.image else c.attrs.get('Image', '')
         except docker.errors.ImageNotFound:
             img_id = c.attrs.get('Image', '')
-        if img_id not in image_usage_map:
-            image_usage_map[img_id] = []
-        image_usage_map[img_id].append({
+        image_usage_map.setdefault(img_id, []).append({
             "name": c.name,
             "status": c.status,
-            "id": c.short_id if hasattr(c, 'short_id') else c.id[:12]
         })
 
     images = client.images.list(all=True)
     for img in images:
         img_id = img.id
-        short_id = img.short_id.replace('sha256:', '') if hasattr(img, 'short_id') else img.id.replace('sha256:', '')[:12]
         size = img.attrs.get('Size', 0)
         created = img.attrs.get('Created', '')
         tags = img.tags
@@ -100,7 +242,6 @@ def get_images():
         if not tags:
             result.append({
                 "id": img_id,
-                "short_id": short_id,
                 "repository": "<none>",
                 "tag": "<none>",
                 "size": size,
@@ -116,7 +257,6 @@ def get_images():
                     repo, tag = repo_tag, "latest"
                 result.append({
                     "id": img_id,
-                    "short_id": short_id,
                     "repository": repo,
                     "tag": tag,
                     "size": size,
@@ -124,7 +264,12 @@ def get_images():
                     "dangling": False,
                     "used_by": used_by
                 })
-    return json.dumps(result)
+    return result
+
+
+def get_images():
+    containers = client.containers.list(all=True)
+    return json.dumps(_build_images_data(containers))
 
 
 def tag_image(id: str, repo: str, tag: str = None):
@@ -182,45 +327,32 @@ def host_shell(cmd: str):
         process.wait()
 
 
-def get_volumes():
+def _build_volumes_data(containers: list) -> list[dict]:
+    """Build slimmed volume entries using a shared container list and TTL-cached df sizes."""
     result = []
-    containers = client.containers.list(all=True)
-    volume_usage_map = {}
+    volume_usage_map: dict[str, list[dict]] = {}
     for c in containers:
         mounts = c.attrs.get('Mounts', [])
         for m in mounts:
             v_name = m.get('Name')
             if v_name:
-                if v_name not in volume_usage_map:
-                    volume_usage_map[v_name] = []
-                volume_usage_map[v_name].append({
+                volume_usage_map.setdefault(v_name, []).append({
                     "name": c.name,
                     "status": c.status,
-                    "id": c.short_id if hasattr(c, 'short_id') else c.id[:12]
                 })
 
-    df_volumes = {}
-    try:
-        df_data = client.df()
-        for v in df_data.get('Volumes', []) or []:
-            if 'Name' in v:
-                usage = v.get('UsageData') or {}
-                size = usage.get('Size', 0)
-                if size is not None and size >= 0:
-                    df_volumes[v['Name']] = size
-    except Exception:
-        pass
+    df_volumes = _get_cached_volume_sizes()
 
     volumes = client.volumes.list()
     for vol in volumes:
         v_name = vol.name
-        driver = vol.attrs.get('Driver', 'local')
-        mountpoint = vol.attrs.get('Mountpoint', '')
-        created = vol.attrs.get('CreatedAt', '') or vol.attrs.get('Created', '')
-        labels = vol.attrs.get('Labels') or {}
-        scope = vol.attrs.get('Scope', 'local')
+        attrs = vol.attrs or {}
+        driver = attrs.get('Driver', 'local')
+        mountpoint = attrs.get('Mountpoint', '')
+        created = attrs.get('CreatedAt', '') or attrs.get('Created', '')
+        labels = attrs.get('Labels') or {}
         size = df_volumes.get(v_name, 0)
-        is_anonymous = bool(re.match(r'^[0-9a-f]{64}$', v_name, re.IGNORECASE))
+        is_anonymous = bool(_ANONYMOUS_VOLUME_RE.match(v_name))
         used_by = volume_usage_map.get(v_name, [])
 
         result.append({
@@ -229,12 +361,16 @@ def get_volumes():
             "mountpoint": mountpoint,
             "created": created,
             "labels": labels,
-            "scope": scope,
             "size": size,
             "anonymous": is_anonymous,
             "used_by": used_by
         })
-    return json.dumps(result)
+    return result
+
+
+def get_volumes():
+    containers = client.containers.list(all=True)
+    return json.dumps(_build_volumes_data(containers))
 
 
 def create_volume(name: str, driver: str = "local", labels: dict = None, driver_opts: dict = None):
@@ -244,16 +380,21 @@ def create_volume(name: str, driver: str = "local", labels: dict = None, driver_
     if driver_opts:
         kwargs["driver_opts"] = driver_opts
     vol = client.volumes.create(**kwargs)
+    invalidate_volume_df_cache()
     return vol.attrs
 
 
 def remove_volume(name: str, force: bool = False):
     vol = client.volumes.get(name)
-    return vol.remove(force=force)
+    res = vol.remove(force=force)
+    invalidate_volume_df_cache()
+    return res
 
 
 def prune_volumes(filters: dict = None):
-    return client.volumes.prune(filters=filters)
+    res = client.volumes.prune(filters=filters)
+    invalidate_volume_df_cache()
+    return res
 
 
 def inspect_volume(name: str):
@@ -313,6 +454,7 @@ def clone_volume(source_name: str, target_name: str):
             },
             remove=True
         )
+        invalidate_volume_df_cache()
         return {"status": "ok", "source": source_name, "target": target_name}
     except Exception as e:
         # Cleanup target volume if copy failed
@@ -342,9 +484,9 @@ def backup_volume(name: str, dest_dir: str = None):
     return {"status": "ok", "volume": name, "file_path": backup_full_path, "file_name": backup_file_name}
 
 
-def get_networks():
+def _build_networks_data(containers: list) -> list[dict]:
+    """Build slimmed network entries using a shared container list."""
     result = []
-    containers = client.containers.list(all=True)
     container_status_map = {c.id: c.status for c in containers}
     container_status_map.update({c.short_id: c.status for c in containers if hasattr(c, 'short_id')})
     container_name_map = {c.id: c.name for c in containers}
@@ -354,15 +496,9 @@ def get_networks():
     for net in networks:
         attrs = net.attrs or {}
         net_id = net.id
-        short_id = net.short_id.replace('sha256:', '') if hasattr(net, 'short_id') else net.id[:12]
         name = net.name
         driver = attrs.get('Driver', 'bridge')
         scope = attrs.get('Scope', 'local')
-        internal = bool(attrs.get('Internal', False))
-        attachable = bool(attrs.get('Attachable', False))
-        ingress = bool(attrs.get('Ingress', False))
-        created = attrs.get('Created', '')
-        labels = attrs.get('Labels') or {}
 
         # System networks are the default pre-defined bridge, host, null/none networks
         is_system = name in ['bridge', 'host', 'none']
@@ -372,11 +508,11 @@ def get_networks():
         ipam_config = ipam.get('Config') or []
         subnet = ""
         gateway = ""
-        if ipam_config and len(ipam_config) > 0:
+        if ipam_config:
             subnet = ipam_config[0].get('Subnet') or ""
             gateway = ipam_config[0].get('Gateway') or ""
 
-        # Extract attached containers
+        # Extract attached containers (only UI-required fields)
         net_containers = attrs.get('Containers') or {}
         containers_list = []
         for cid, cinfo in net_containers.items():
@@ -384,32 +520,40 @@ def get_networks():
             c_name = cinfo.get('Name') or container_name_map.get(cid, short_cid)
             c_status = container_status_map.get(cid, container_status_map.get(short_cid, 'running'))
             ipv4 = cinfo.get('IPv4Address', '')
-            ipv6 = cinfo.get('IPv6Address', '')
             containers_list.append({
                 "id": short_cid,
                 "name": c_name,
                 "status": c_status,
                 "ipv4": ipv4,
-                "ipv6": ipv6
             })
 
         result.append({
             "id": net_id,
-            "short_id": short_id,
             "name": name,
             "driver": driver,
             "scope": scope,
-            "internal": internal,
-            "attachable": attachable,
-            "ingress": ingress,
-            "created": created,
             "is_system": is_system,
             "subnet": subnet,
             "gateway": gateway,
             "containers": containers_list,
-            "labels": labels
         })
-    return json.dumps(result)
+    return result
+
+
+def get_networks():
+    containers = client.containers.list(all=True)
+    return json.dumps(_build_networks_data(containers))
+
+
+def get_unified_snapshot() -> dict[str, list[dict]]:
+    """Collect containers, images, volumes, and networks in a single pass."""
+    containers = client.containers.list(all=True)
+    return {
+        "containers": _build_containers_data(containers),
+        "images": _build_images_data(containers),
+        "volumes": _build_volumes_data(containers),
+        "networks": _build_networks_data(containers),
+    }
 
 
 def create_network(name: str, driver: str = "bridge", subnet: str = None, gateway: str = None, internal: bool = False, attachable: bool = True, labels: dict = None, options: dict = None):

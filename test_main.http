@@ -5,7 +5,7 @@ Accept: application/json
 
 ###
 
-GET http://127.0.0.1:9456/imagestats
+GET http://127.0.0.1:9456/events
 Accept: text/event-stream
 
 ###
@@ -40,11 +40,6 @@ Accept: application/json
 
 ###
 
-GET http://127.0.0.1:9456/volumestats
-Accept: text/event-stream
-
-###
-
 POST http://127.0.0.1:9456/createvolume?name=test-vol&driver=local&labels=app%3Dtest
 Accept: application/json
 
@@ -72,11 +67,6 @@ Accept: application/json
 
 POST http://127.0.0.1:9456/removevolume?name=test-vol
 Accept: application/json
-
-###
-
-GET http://127.0.0.1:9456/networkstats
-Accept: text/event-stream
 
 ###
 

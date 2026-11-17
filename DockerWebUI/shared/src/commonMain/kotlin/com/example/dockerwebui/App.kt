@@ -17,7 +17,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.SSEBufferPolicy
-import io.ktor.client.plugins.sse.deserialize
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -27,7 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.serializer
 import kotlin.time.Duration.Companion.seconds
 
 @Serializable
@@ -60,6 +58,7 @@ fun App() {
 
     var apiHost by remember { mutableStateOf("127.0.0.1") }
     var apiPort by remember { mutableStateOf(9456) }
+    var configLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit){
         try{
@@ -83,114 +82,42 @@ fun App() {
             }
         } catch (e: Exception) {
             println("Failed to load config.json: $e")
+        } finally {
+            configLoaded = true
         }
     }
 
-    LaunchedEffect(apiHost, apiPort){
+    LaunchedEffect(configLoaded, apiHost, apiPort){
+        if (!configLoaded) return@LaunchedEffect
         try{
             client.sse(
                 host = apiHost,
                 port = apiPort,
-                path = "/stats",
-                deserialize = { typeInfo, jsonString ->
-                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
-                    json.decodeFromString(serializer, jsonString)!!
-                }
+                path = "/events"
             ) {
                 incoming.collect { event ->
-                    event.data?.let { dataStr ->
-                        val containers = deserialize<List<ContainerData>>(dataStr)
-                        if (containers != null) {
+                    val dataStr = event.data
+                    if (dataStr.isNullOrBlank()) return@collect
+                    try {
+                        val payload = json.decodeFromString<UnifiedSsePayload>(dataStr)
+                        payload.containers?.let { containers ->
                             state.containers.clear()
                             state.containers.addAll(containers)
                         }
-                    }
-                }
-            }
-        }
-        catch(e: Exception){
-            if (e is CancellationException) {
-                ensureActive()
-            }
-            println("Exception in stats SSE:$e")
-        }
-    }
-    LaunchedEffect(apiHost, apiPort){
-        try{
-            client.sse(
-                host = apiHost,
-                port = apiPort,
-                path = "/imagestats",
-                deserialize = { typeInfo, jsonString ->
-                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
-                    json.decodeFromString(serializer, jsonString)!!
-                }
-            ) {
-                incoming.collect { event ->
-                    event.data?.let { dataStr ->
-                        val images = deserialize<List<ImageData>>(dataStr)
-                        if (images != null) {
+                        payload.images?.let { images ->
                             state.images.clear()
                             state.images.addAll(images)
                         }
-                    }
-                }
-            }
-        }
-        catch(e: Exception){
-            if (e is CancellationException) {
-                ensureActive()
-            }
-            println("Exception in imagestats SSE:$e")
-        }
-    }
-    LaunchedEffect(apiHost, apiPort){
-        try{
-            client.sse(
-                host = apiHost,
-                port = apiPort,
-                path = "/volumestats",
-                deserialize = { typeInfo, jsonString ->
-                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
-                    json.decodeFromString(serializer, jsonString)!!
-                }
-            ) {
-                incoming.collect { event ->
-                    event.data?.let { dataStr ->
-                        val volumes = deserialize<List<VolumeData>>(dataStr)
-                        if (volumes != null) {
+                        payload.volumes?.let { volumes ->
                             state.volumes.clear()
                             state.volumes.addAll(volumes)
                         }
-                    }
-                }
-            }
-        }
-        catch(e: Exception){
-            if (e is CancellationException) {
-                ensureActive()
-            }
-            println("Exception in volumestats SSE:$e")
-        }
-    }
-    LaunchedEffect(apiHost, apiPort){
-        try{
-            client.sse(
-                host = apiHost,
-                port = apiPort,
-                path = "/networkstats",
-                deserialize = { typeInfo, jsonString ->
-                    val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
-                    json.decodeFromString(serializer, jsonString)!!
-                }
-            ) {
-                incoming.collect { event ->
-                    event.data?.let { dataStr ->
-                        val networks = deserialize<List<NetworkData>>(dataStr)
-                        if (networks != null) {
+                        payload.networks?.let { networks ->
                             state.networks.clear()
                             state.networks.addAll(networks)
                         }
+                    } catch (e: Exception) {
+                        println("Failed to parse unified SSE payload: $e")
                     }
                 }
             }
@@ -199,7 +126,7 @@ fun App() {
             if (e is CancellationException) {
                 ensureActive()
             }
-            println("Exception in networkstats SSE:$e")
+            println("Exception in unified SSE: $e")
         }
     }
     Box(modifier = Modifier.fillMaxSize().background(color = Color(11, 18, 27))) {

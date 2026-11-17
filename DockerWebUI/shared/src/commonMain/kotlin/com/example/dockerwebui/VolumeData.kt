@@ -11,7 +11,6 @@ data class VolumeData(
     val mountpoint: String = "",
     val created: String = "",
     val labels: Map<String, String> = emptyMap(),
-    val scope: String = "local",
     val size: Long = 0L,
     val anonymous: Boolean = false,
     @SerialName("used_by") val usedBy: List<ContainerUsage> = emptyList()
