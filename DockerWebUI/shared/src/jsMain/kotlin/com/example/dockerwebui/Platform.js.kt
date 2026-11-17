@@ -1,6 +1,13 @@
 package com.example.dockerwebui
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.js.Js
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.SSEBufferPolicy
+import org.w3c.fetch.INCLUDE
+import org.w3c.fetch.RequestCredentials
 import web.navigator.navigator
+import kotlin.time.Duration.Companion.seconds
 
 class JsPlatform : Platform {
     private val userAgent = navigator.userAgent
@@ -12,3 +19,18 @@ class JsPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = JsPlatform()
+
+actual fun createAppHttpClient(configureSse: Boolean): HttpClient = HttpClient(Js) {
+    engine {
+        configureRequest {
+            credentials = RequestCredentials.INCLUDE
+        }
+    }
+    if (configureSse) {
+        install(SSE) {
+            bufferPolicy = SSEBufferPolicy.LastEvents(10)
+            maxReconnectionAttempts = 5
+            reconnectionTime = 2.seconds
+        }
+    }
+}

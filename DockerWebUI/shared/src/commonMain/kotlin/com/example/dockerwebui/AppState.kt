@@ -5,7 +5,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
+enum class AuthStatus { CHECKING, UNAUTHENTICATED, AUTHENTICATED }
+
 class AppState {
+
+    var authStatus by mutableStateOf(AuthStatus.CHECKING)
+    var authenticatedUser by mutableStateOf<String?>(null)
+    var loginError by mutableStateOf<String?>(null)
+    var isLoggingIn by mutableStateOf(false)
 
     var contentToDisplay by mutableStateOf(SelectedMode.CONTAINERS)
 
@@ -29,5 +36,13 @@ class AppState {
     var showCreateNetworkSection by mutableStateOf(true)
 
     var api = DockerApi()
+
+    fun clearSessionData() {
+        containers.clear()
+        images.clear()
+        volumes.clear()
+        networks.clear()
+        openShells.clear()
+    }
 }
 enum class SelectedMode{CONTAINERS , IMAGES , VOLUMES , NETWORKS , COMPONENTSTACKS , TERMINAL , SETTINGS  }

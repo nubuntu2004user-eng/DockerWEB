@@ -3,6 +3,7 @@ package com.example.dockerwebui
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -98,5 +99,41 @@ class SharedCommonTest {
         assertNull(payload.images)
         assertNull(payload.volumes)
         assertNull(payload.networks)
+    }
+
+    @Test
+    fun encodesLoginRequestAndDecodesAuthStatusResponse() {
+        val encoded = json.encodeToString(LoginRequest(user = "admin", password = "secret"))
+        assertTrue(encoded.contains("\"user\":\"admin\""))
+        assertTrue(encoded.contains("\"password\":\"secret\""))
+
+        val authed = json.decodeFromString<AuthStatusResponse>("""{"authenticated":true,"user":"admin"}""")
+        assertTrue(authed.authenticated)
+        assertEquals("admin", authed.user)
+
+        val unauthed = json.decodeFromString<AuthStatusResponse>("""{"authenticated":false}""")
+        assertFalse(unauthed.authenticated)
+        assertNull(unauthed.user)
+    }
+
+    @Test
+    fun appStateStartsCheckingAndClearsSessionData() {
+        val state = AppState()
+        assertEquals(AuthStatus.CHECKING, state.authStatus)
+        state.openShells.add("Host")
+        state.containers.add(
+            ContainerData(
+                id = "c1",
+                name = "web",
+                status = "running",
+                osType = "linux",
+                cpuPercent = 1.0,
+                memoryUsage = 100,
+                memoryLimit = 1000
+            )
+        )
+        state.clearSessionData()
+        assertTrue(state.openShells.isEmpty())
+        assertTrue(state.containers.isEmpty())
     }
 }

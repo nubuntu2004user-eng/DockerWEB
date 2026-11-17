@@ -34,17 +34,21 @@ A web interface for managing a local Docker engine. Built with a Compose Multipl
 
 ## Configuration
 
-You can configure the backend host IP and port by editing `config.json` in the project root:
+You can configure the backend host IP, port, and login credentials by editing `config.json` in the project root:
 
 ```json
 {
   "host": "0.0.0.0",
-  "port": 9456
+  "port": 9456,
+  "user": "admin",
+  "password": "admin"
 }
 ```
 
 - **`host`**: The interface address for the backend server to bind to (e.g. `0.0.0.0` or a specific IP). When accessed from another host, the UI automatically connects to the server's hostname/IP.
 - **`port`**: The port number for the backend server.
+- **`user`**: Username required to sign in via the browser login screen.
+- **`password`**: Password required to sign in via the browser login screen. Authentication is persisted for the current browser/server session via an `HttpOnly` session cookie and prompts again on the next session.
 
 ## Quickstart
 
@@ -69,12 +73,11 @@ docker run -d \
 Access the UI at `http://127.0.0.1:9456` (redirects automatically to `dockerweb.html`).
 
 > [!WARNING]
-> DockerWEB mounts the Docker socket and exposes shell execution endpoints with no authentication.
-> Run it only in trusted local environments. For host-only exposure, bind to `127.0.0.1`:
+> DockerWEB mounts the Docker socket and exposes shell execution endpoints behind cookie-based login.
+> Change the default `admin` / `admin` credentials in `config.json` before use, and prefer HTTPS (e.g. via a reverse proxy) or binding to `127.0.0.1` when running on untrusted networks:
 > ```bash
 > docker run -d -p 127.0.0.1:9456:9456 -v /var/run/docker.sock:/var/run/docker.sock --name dockerweb dockerweb
 > ```
-> Do not expose port `9456` to untrusted networks without an authenticating reverse proxy.
 
 ### Local Development
 

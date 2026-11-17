@@ -5,18 +5,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.dockerwebui.Views.LoginScreen
 import com.example.dockerwebui.Views.leftPanel
 import com.example.dockerwebui.Views.rightPanelContainers
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.js.Js
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.SSEBufferPolicy
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -26,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 data class ServerConfig(
@@ -37,17 +34,10 @@ data class ServerConfig(
 @Composable
 @Preview
 fun App() {
-    val client = remember {  HttpClient(Js){
-        install(SSE){
-            bufferPolicy = SSEBufferPolicy.LastEvents(10)
-            maxReconnectionAttempts = 5
-            reconnectionTime = 2.seconds
-        }
-    }
-    }
+    val client = remember { createAppHttpClient(configureSse = true) }
 
-    val scope = CoroutineScope(context = Dispatchers.Default)
-    val state = remember{ AppState() }
+    val scope = remember { CoroutineScope(context = Dispatchers.Default) }
+    val state = remember { AppState() }
     val font = Font()
     val json = remember {
         Json {
@@ -60,8 +50,22 @@ fun App() {
     var apiPort by remember { mutableStateOf(9456) }
     var configLoaded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit){
-        try{
+    val handleUnauthorized: () -> Unit = remember {
+        {
+            state.clearSessionData()
+            state.authenticatedUser = null
+            state.loginError = "Session expired. Please sign in again."
+            state.authStatus = AuthStatus.UNAUTHENTICATED
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        state.api = DockerApi(
+            client = client,
+            baseUrl = "http://$apiHost:$apiPort",
+            onUnauthorized = handleUnauthorized
+        )
+        try {
             val response = client.get("config.json")
             if (response.status.value in 200..299) {
                 val text = response.bodyAsText()
@@ -78,18 +82,37 @@ fun App() {
 
                 apiHost = resolvedHost
                 apiPort = resolvedPort
-                state.api = DockerApi(baseUrl = "http://$resolvedHost:$resolvedPort")
+                state.api = DockerApi(
+                    client = client,
+                    baseUrl = "http://$resolvedHost:$resolvedPort",
+                    onUnauthorized = handleUnauthorized
+                )
             }
         } catch (e: Exception) {
             println("Failed to load config.json: $e")
         } finally {
             configLoaded = true
         }
+
+        try {
+            val auth = state.api.checkAuthStatus()
+            if (auth.authenticated) {
+                state.authenticatedUser = auth.user
+                state.authStatus = AuthStatus.AUTHENTICATED
+            } else {
+                state.authenticatedUser = null
+                state.authStatus = AuthStatus.UNAUTHENTICATED
+            }
+        } catch (e: Exception) {
+            println("Failed to check auth status: $e")
+            state.authenticatedUser = null
+            state.authStatus = AuthStatus.UNAUTHENTICATED
+        }
     }
 
-    LaunchedEffect(configLoaded, apiHost, apiPort){
-        if (!configLoaded) return@LaunchedEffect
-        try{
+    LaunchedEffect(configLoaded, state.authStatus, apiHost, apiPort) {
+        if (!configLoaded || state.authStatus != AuthStatus.AUTHENTICATED) return@LaunchedEffect
+        try {
             client.sse(
                 host = apiHost,
                 port = apiPort,
@@ -121,18 +144,39 @@ fun App() {
                     }
                 }
             }
-        }
-        catch(e: Exception){
+        } catch (e: Exception) {
             if (e is CancellationException) {
                 ensureActive()
             }
             println("Exception in unified SSE: $e")
+            try {
+                if (!state.api.checkAuthStatus().authenticated) {
+                    state.clearSessionData()
+                    state.authenticatedUser = null
+                    state.loginError = "Session expired. Please sign in again."
+                    state.authStatus = AuthStatus.UNAUTHENTICATED
+                }
+            } catch (_: Exception) {
+            }
         }
     }
+
     Box(modifier = Modifier.fillMaxSize().background(color = Color(11, 18, 27))) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            leftPanel(0.15f, appState = state, font = font)
-            rightPanelContainers(1f, font = font, appState = state, scope = scope)
+        when (state.authStatus) {
+            AuthStatus.CHECKING -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(31, 111, 235))
+                }
+            }
+            AuthStatus.UNAUTHENTICATED -> {
+                LoginScreen(appState = state, font = font, scope = scope)
+            }
+            AuthStatus.AUTHENTICATED -> {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    leftPanel(0.15f, appState = state, font = font, scope = scope)
+                    rightPanelContainers(1f, font = font, appState = state, scope = scope)
+                }
+            }
         }
         ToastHost(
             modifier = Modifier.fillMaxSize().padding(20.dp),
