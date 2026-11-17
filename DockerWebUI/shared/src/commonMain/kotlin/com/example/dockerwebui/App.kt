@@ -19,13 +19,22 @@ import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.SSEBufferPolicy
 import io.ktor.client.plugins.sse.deserialize
 import io.ktor.client.plugins.sse.sse
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import kotlin.time.Duration.Companion.seconds
+
+@Serializable
+data class ServerConfig(
+    val host: String = "127.0.0.1",
+    val port: Int = 9456
+)
 
 @Composable
 @Preview
@@ -48,11 +57,40 @@ fun App() {
             isLenient = true
         }
     }
+
+    var apiHost by remember { mutableStateOf("127.0.0.1") }
+    var apiPort by remember { mutableStateOf(9456) }
+
     LaunchedEffect(Unit){
         try{
+            val response = client.get("config.json")
+            if (response.status.value in 200..299) {
+                val text = response.bodyAsText()
+                val config = json.decodeFromString<ServerConfig>(text)
+                val browserHost = kotlinx.browser.window.location.hostname
+                val browserPort = kotlinx.browser.window.location.port.toIntOrNull()
+
+                val resolvedHost = if (config.host == "0.0.0.0" || config.host.isBlank()) {
+                    if (browserHost.isNotBlank()) browserHost else "127.0.0.1"
+                } else {
+                    config.host
+                }
+                val resolvedPort = if (config.port > 0) config.port else (browserPort ?: 9456)
+
+                apiHost = resolvedHost
+                apiPort = resolvedPort
+                state.api = DockerApi(baseUrl = "http://$resolvedHost:$resolvedPort")
+            }
+        } catch (e: Exception) {
+            println("Failed to load config.json: $e")
+        }
+    }
+
+    LaunchedEffect(apiHost, apiPort){
+        try{
             client.sse(
-                host = "127.0.0.1",
-                port = 9456,
+                host = apiHost,
+                port = apiPort,
                 path = "/stats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -74,14 +112,14 @@ fun App() {
             if (e is CancellationException) {
                 ensureActive()
             }
-            println("Exception:$e")
+            println("Exception in stats SSE:$e")
         }
     }
-    LaunchedEffect(Unit){
+    LaunchedEffect(apiHost, apiPort){
         try{
             client.sse(
-                host = "127.0.0.1",
-                port = 9456,
+                host = apiHost,
+                port = apiPort,
                 path = "/imagestats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -106,11 +144,11 @@ fun App() {
             println("Exception in imagestats SSE:$e")
         }
     }
-    LaunchedEffect(Unit){
+    LaunchedEffect(apiHost, apiPort){
         try{
             client.sse(
-                host = "127.0.0.1",
-                port = 9456,
+                host = apiHost,
+                port = apiPort,
                 path = "/volumestats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)
@@ -135,11 +173,11 @@ fun App() {
             println("Exception in volumestats SSE:$e")
         }
     }
-    LaunchedEffect(Unit){
+    LaunchedEffect(apiHost, apiPort){
         try{
             client.sse(
-                host = "127.0.0.1",
-                port = 9456,
+                host = apiHost,
+                port = apiPort,
                 path = "/networkstats",
                 deserialize = { typeInfo, jsonString ->
                     val serializer = json.serializersModule.serializer(typeInfo.kotlinType!!)

@@ -28,6 +28,6 @@ class AppState {
     var networkSearchQuery by mutableStateOf("")
     var showCreateNetworkSection by mutableStateOf(true)
 
-    val api = DockerApi()
+    var api = DockerApi()
 }
 enum class SelectedMode{CONTAINERS , IMAGES , VOLUMES , NETWORKS , COMPONENTSTACKS , TERMINAL , SETTINGS  }

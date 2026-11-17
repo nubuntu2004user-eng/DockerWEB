@@ -32,6 +32,20 @@ A web interface for managing a local Docker engine. Built with a Compose Multipl
 - **Volumes:** Create local volumes, browse volume file trees, backup to host directories, clone data between volumes, and inspect configs.
 - **Networks:** Create custom bridge networks, inspect IP/subnet assignments, and connect or disconnect running containers.
 
+## Configuration
+
+You can configure the backend host IP and port by editing `config.json` in the project root:
+
+```json
+{
+  "host": "0.0.0.0",
+  "port": 9456
+}
+```
+
+- **`host`**: The interface address for the backend server to bind to (e.g. `0.0.0.0` or a specific IP). When accessed from another host, the UI automatically connects to the server's hostname/IP.
+- **`port`**: The port number for the backend server.
+
 ## Quickstart
 
 ### Option 1: Docker Compose

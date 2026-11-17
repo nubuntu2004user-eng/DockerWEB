@@ -15,8 +15,9 @@ COPY ./pyproject.toml /app/pyproject.toml
 RUN /root/.local/bin/uv sync
 ENV PATH="/app/.venv/bin:$PATH"
 
+COPY ./config.json /app/config.json
 COPY ./BackendLogic /app/BackendLogic
 COPY --from=build /app/webApp/build/dist/wasmJs/productionExecutable /app/DockerWebUI/webApp/build/dist/wasmJs/productionExecutable
 RUN mv /app/DockerWebUI/webApp/build/dist/wasmJs/productionExecutable/index.html /app/DockerWebUI/webApp/build/dist/wasmJs/productionExecutable/dockerweb.html
 
-CMD ["uvicorn", "BackendLogic.src.main:app", "--host", "0.0.0.0", "--port", "9456"]
+CMD ["python", "-m", "BackendLogic.src.main"]

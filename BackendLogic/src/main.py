@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from collections.abc import AsyncIterable
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
@@ -19,6 +20,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Load config.json from project root
+config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config.json"))
+if not os.path.exists(config_path):
+    config_path = "config.json"
+
+config_data = {"host": "0.0.0.0", "port": 9456}
+try:
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            config_data.update(json.load(f))
+except Exception as e:
+    print(f"Failed to load config.json: {e}")
+
+@app.get("/config.json")
+async def get_config():
+    return config_data
 
 
 
@@ -404,3 +422,7 @@ async def root():
 
 
 app.mount("/" , StaticFiles(directory="DockerWebUI/webApp/build/dist/wasmJs/productionExecutable") , name="webApp")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("BackendLogic.src.main:app", host=config_data.get("host", "0.0.0.0"), port=config_data.get("port", 9456), reload=True)
