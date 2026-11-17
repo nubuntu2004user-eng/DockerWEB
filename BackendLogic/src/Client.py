@@ -76,7 +76,10 @@ def get_images():
     containers = client.containers.list(all=True)
     image_usage_map = {}
     for c in containers:
-        img_id = getattr(c.image, 'id', None) or c.attrs.get('Image', '')
+        try:
+            img_id = c.image.id if c.image else c.attrs.get('Image', '')
+        except docker.errors.ImageNotFound:
+            img_id = c.attrs.get('Image', '')
         if img_id not in image_usage_map:
             image_usage_map[img_id] = []
         image_usage_map[img_id].append({
@@ -171,8 +174,9 @@ def host_shell(cmd: str):
     )
     open_shells["Host"] = process
     try:
-        for line in process.stdout:
-            yield line
+        reader = getattr(process.stdout, 'read1', process.stdout.read)
+        for chunk in iter(lambda: reader(4096), b''):
+            yield chunk
     finally:
         process.stdout.close()
         process.wait()

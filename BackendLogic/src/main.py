@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterable
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
@@ -104,19 +105,22 @@ async def remove(id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/shell" , response_class=EventSourceResponse)
-async def shell(id: str, cmd: str)-> AsyncIterable[ServerSentEvent]:
-        try:
-            stream = await asyncio.to_thread(client.shell, id, cmd)
-            client.open_shells[id] = stream
-            for chunk in stream:
-                text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').rstrip('\n')
-                yield ServerSentEvent(data=text)
-                await asyncio.sleep(0)
-        finally:
-            client.open_shells.pop(id, None)
+@app.get("/shell", response_class=EventSourceResponse)
+async def shell(id: str, cmd: str) -> AsyncIterable[ServerSentEvent]:
+    try:
+        stream = await asyncio.to_thread(client.shell, id, cmd)
+        client.open_shells[id] = stream
+        while True:
+            chunk = await asyncio.to_thread(next, stream, None)
+            if chunk is None:
+                break
+            text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').strip('\n')
+            text = text.replace('\n', '  ')
+            yield ServerSentEvent(raw_data=text)
+    finally:
+        client.open_shells.pop(id, None)
 
-@app.get("/shellhost" , response_class=EventSourceResponse)
+@app.get("/shellhost", response_class=EventSourceResponse)
 async def shellhost(cmd: str) -> AsyncIterable[ServerSentEvent]:
     gen = client.host_shell(cmd)
     try:
@@ -124,8 +128,9 @@ async def shellhost(cmd: str) -> AsyncIterable[ServerSentEvent]:
             chunk = await asyncio.to_thread(next, gen, None)
             if chunk is None:
                 break
-            text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').rstrip('\n')
-            yield ServerSentEvent(data=text)
+            text = chunk.decode("utf-8", errors="replace").replace('\r\n', '\n').replace('\r', '\n').strip('\n')
+            text = text.replace('\n', '  ')
+            yield ServerSentEvent(raw_data=text)
     finally:
         client.open_shells.pop("Host", None)
 @app.get("/inspectcontainer")
@@ -392,5 +397,10 @@ async def disconnectnetwork(network_id: str, container_id: str, force: bool = Fa
         return {"status": "ok", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/dockerweb.html")
+
 
 app.mount("/" , StaticFiles(directory="DockerWebUI/webApp/build/dist/wasmJs/productionExecutable") , name="webApp")

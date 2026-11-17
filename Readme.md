@@ -2,6 +2,29 @@
 
 A web interface for managing a local Docker engine. Built with a Compose Multiplatform (WebAssembly) frontend and a Python FastAPI backend communicating via the Docker socket and Server-Sent Events (SSE).
 
+## Demos
+
+<details open>
+<summary><b>1. Application Overview</b> (walkthrough of all main views)</summary>
+<br>
+
+![App Overview](docs/assets/demo1.gif)
+</details>
+
+<details>
+<summary><b>2. Container Management</b> (running, managing, and removing containers)</summary>
+<br>
+
+![Container Lifecycle](docs/assets/demo2.gif)
+</details>
+
+<details>
+<summary><b>3. Self-Removal & Error Handling</b> (removing the active DockerWEB container and browser connection error)</summary>
+<br>
+
+![Container Removal and Browser Error](docs/assets/demo3.gif)
+</details>
+
 ## Features
 
 - **Containers:** View status metrics, start, stop, restart, pause, view logs, inspect JSON configuration, and run interactive shell commands.
@@ -29,7 +52,15 @@ docker run -d \
   dockerweb
 ```
 
-Access the UI at `http://localhost:9456`.
+Access the UI at `http://127.0.0.1:9456` (redirects automatically to `dockerweb.html`).
+
+> [!WARNING]
+> DockerWEB mounts the Docker socket and exposes shell execution endpoints with no authentication.
+> Run it only in trusted local environments. For host-only exposure, bind to `127.0.0.1`:
+> ```bash
+> docker run -d -p 127.0.0.1:9456:9456 -v /var/run/docker.sock:/var/run/docker.sock --name dockerweb dockerweb
+> ```
+> Do not expose port `9456` to untrusted networks without an authenticating reverse proxy.
 
 ### Local Development
 
